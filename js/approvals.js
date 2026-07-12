@@ -1,5 +1,6 @@
 /* ======================================================================
    approvals.js - 审批系统 (发起/审批/查询/历史)
+   修复: 使用 approvalsContent (匹配 index.html 中的 id)
    ====================================================================== */
 
 window.FA = window.FA || {};
@@ -21,11 +22,13 @@ FA._approvalCategoryNames = {
    渲染审批列表
    ===================== */
 FA.renderApprovals = function() {
-    var container = document.getElementById('approvalList');
+    /* 修复: 使用 approvalsContent (匹配 index.html) */
+    var container = document.getElementById('approvalsContent');
     if (!container) return;
 
-    /* 添加工具栏 (如果不存在) */
     var section = document.getElementById('approvals-section') || container.closest('.content-section');
+
+    /* 添加工具栏 (如果不存在) */
     if (section && !section.querySelector('.approval-toolbar')) {
         FA._injectApprovalToolbar(section);
     }
@@ -41,9 +44,8 @@ FA.renderApprovals = function() {
     }
 
     var canApprove = FA.checkPermission('approveApproval');
-    var canCreate = FA.checkPermission('createApproval');
 
-    container.innerHTML = FA.approvals.map(function(a) {
+    container.innerHTML = '<div class="approval-list">' + FA.approvals.map(function(a) {
         var statusClass = a.status;
         var statusName = FA._approvalStatusNames[a.status] || a.status;
         var categoryName = FA._approvalCategoryNames[a.category] || a.category;
@@ -82,7 +84,7 @@ FA.renderApprovals = function() {
             '<div class="approval-progress">' + stepHtml + '</div>' +
             actionHtml +
         '</div>';
-    }).join('');
+    }).join('') + '</div>';
 };
 
 /* 渲染审批步骤 */
@@ -160,7 +162,7 @@ FA._injectApprovalToolbar = function(section) {
     toolbar.innerHTML = leftHtml + rightHtml;
 
     /* 插入到容器之前 */
-    var container = section.querySelector('#approvalList');
+    var container = section.querySelector('#approvalsContent');
     if (container) {
         section.insertBefore(toolbar, container);
     } else {
@@ -376,7 +378,6 @@ FA.queryApprovalByOrder = function(orderNo) {
         return;
     }
 
-    /* 显示查询结果弹窗 */
     var modalId = 'approval-query-modal';
     var modal = document.getElementById(modalId);
 
