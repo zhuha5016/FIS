@@ -737,6 +737,24 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
     align-items: flex-end;
 }
 .photo-item:hover .photo-overlay { opacity: 1; }
+
+/* 照片上传时间 (左上角悬浮显示) */
+.photo-upload-time {
+    position: absolute;
+    top: 8px; left: 8px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 5;
+    pointer-events: none;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+}
+.photo-item:hover .photo-upload-time { opacity: 1; }
 .photo-delete {
     background: rgba(231, 76, 60, 0.8);
     border: none;
@@ -755,17 +773,8 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
     width: 100%; height: 100%;
     background: rgba(0,0,0,0.92);
     z-index: 2000;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
 }
 .photo-viewer.open { display: flex; }
-.photo-viewer img {
-    max-width: 85%;
-    max-height: 80vh;
-    object-fit: contain;
-    border-radius: 8px;
-}
 .photo-viewer-info {
     color: white;
     text-align: center;
@@ -814,6 +823,110 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
 .photo-viewer-nav.prev { left: 20px; }
 .photo-viewer-nav.next { right: 20px; }
 .photo-viewer-nav:hover { background: rgba(255,255,255,0.2); }
+
+/* 照片查看器: 分栏布局 (左图片 + 右信息面板) */
+.photo-viewer-layout {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: stretch;
+}
+.photo-viewer-image-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 20px;
+}
+.photo-viewer-image-area img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+}
+.photo-viewer-info-panel {
+    width: 300px;
+    flex-shrink: 0;
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 24px 20px;
+    overflow-y: auto;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+.photo-viewer-info-panel h3 {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    word-break: break-all;
+}
+.photo-viewer-info-panel::-webkit-scrollbar { width: 4px; }
+.photo-viewer-info-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.photo-info-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.photo-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    gap: 12px;
+}
+.photo-info-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 60px;
+}
+.photo-info-value {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    text-align: right;
+    word-break: break-all;
+    font-weight: 500;
+}
+.photo-info-index {
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+}
+
+/* 照片查看器下载按钮 */
+.photo-viewer-download {
+    position: absolute;
+    top: 20px; right: 76px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(4px);
+    z-index: 10;
+}
+.photo-viewer-download:hover { background: rgba(255, 255, 255, 0.22); }
+
+/* 审批状态: 撤回 */
+.approval-status.withdrawn { background: rgba(108, 117, 125, 0.1); color: #6c757d; }
+
+/* 审批详情/历史弹窗内联样式辅助 */
+.approval-detail-modal-content { max-width: 560px; }
 
 /* 日历 */
 .calendar-container {
@@ -1210,8 +1323,16 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
     font-size: 18px;
     font-weight: 600;
     outline: none;
+    caret-color: transparent;
+    -webkit-user-select: text;
+    user-select: text;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
-.val-input-box:focus { border-color: #007AFF; }
+.val-input-box:focus {
+    border: 2px solid #007AFF;
+    box-shadow: 0 0 8px rgba(0, 122, 255, 0.25);
+}
+.val-input-box::selection { background: rgba(0, 122, 255, 0.15); }
 
 /* 审批系统 */
 .approval-list { display: flex; flex-direction: column; gap: 10px; }
