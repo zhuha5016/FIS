@@ -49,6 +49,17 @@ FA.Data = {
 
         FA.approvals = this.loadData(FA.DB_KEYS.approvals, []);
         FA.dashboardLayout = this.loadData(FA.DB_KEYS.layout, ['schedule', 'devices', 'members', 'notifications', 'todo']);
+
+        /* 加载删除的审批(留痕) + 登录日志 + 操作日志 */
+        FA.deletedApprovals = this.loadData(FA.DB_KEYS.deletedApprovals, []);
+        FA.loginLogs = this.loadData(FA.DB_KEYS.loginLogs, []);
+        FA.opLogs = this.loadData(FA.DB_KEYS.opLogs, []);
+
+        /* 加载语言偏好 */
+        FA.currentLang = localStorage.getItem('fi_language') || 'zh';
+
+        /* 启动网络状态监控 */
+        if (FA.initNetworkMonitor) FA.initNetworkMonitor();
     },
 
     /* 导出数据 */
@@ -114,6 +125,131 @@ FA.Data = {
         });
         if (FA.notifications.length > 50) FA.notifications = FA.notifications.slice(0, 50);
         if (FA.renderNotifications) FA.renderNotifications();
+    },
+
+    /* =====================
+       信息变更通知系统 (5分钟延迟 + 批量合并)
+       ===================== */
+    pendingInfoChanges: null,
+    infoChangeTimer: null,
+
+    recordInfoChange: function(username, changes) {
+        // changes is an array of { field: 'phone', oldValue: '...', newValue: '...' }
+        var now = new Date();
+        if (!FA.Data.pendingInfoChanges) {
+            FA.Data.pendingInfoChanges = {
+                username: username,
+                changes: changes,
+                firstChangeTime: now,
+                lastChangeTime: now
+            };
+        } else {
+            // Same user — batch changes
+            FA.Data.pendingInfoChanges.changes = FA.Data.pendingInfoChanges.changes.concat(changes);
+            FA.Data.pendingInfoChanges.lastChangeTime = now;
+        }
+
+        // Clear any existing timer
+        if (FA.Data.infoChangeTimer) clearTimeout(FA.Data.infoChangeTimer);
+
+        // Set 5-minute (300000ms) timer to send notification
+        FA.Data.infoChangeTimer = setTimeout(function() {
+            FA.Data.flushInfoChangeNotification();
+        }, 300000);
+    },
+
+    flushInfoChangeNotification: function() {
+        if (!FA.Data.pendingInfoChanges) return;
+        var data = FA.Data.pendingInfoChanges;
+        FA.Data.pendingInfoChanges = null;
+        FA.Data.infoChangeTimer = null;
+
+        var acc = FA.accounts[data.username];
+        if (!acc) return;
+
+        var member = FA.members.find(function(m) { return m.username === data.username; });
+        var realName = (member && member.realName) || acc.nameCn || acc.name;
+        var phone = (member && member.phone) || acc.phone;
+        var gender = (member && member.gender) || acc.gender || '';
+        var role = FA.getRoleName(acc.role);
+
+        var firstTime = data.firstChangeTime;
+        var lastTime = data.lastChangeTime;
+        var timeStr;
+        if (firstTime.getTime() === lastTime.getTime()) {
+            timeStr = FA.formatExactTime(firstTime);
+        } else {
+            timeStr = FA.formatExactTime(firstTime) + '-' + FA.formatExactTime(lastTime);
+        }
+
+        // Title: 身份 用户名 真实姓名 于 2026.7.12 19:58:00分修改了信息
+        var title = role + ' ' + data.username + ' ' + realName + ' 于 ' + FA.formatDateCN(firstTime) + ' ' + FA.formatTimeCN(firstTime) + '分修改了信息';
+
+        // Content: 用户名：... 真实姓名：... 手机号：... 身份：... 性别：... 修改时间：...  修改了以下信息：
+        var fieldLabels = {
+            name: '英文姓名', nameCn: '中文姓名', phone: '手机号', email: '邮箱',
+            gender: '性别', password: '密码', role: '角色'
+        };
+        var changeLines = data.changes.map(function(c, i) {
+            var label = fieldLabels[c.field] || c.field;
+            return '-' + (i+1) + '.' + label + '：' + (c.oldValue || '空') + ' → ' + (c.newValue || '空');
+        }).join('\n');
+
+        var content = '用户名：' + data.username + '\n' +
+            '真实姓名：' + realName + '\n' +
+            '手机号：' + phone + '\n' +
+            '身份：' + role + '\n' +
+            '性别：' + gender + '\n' +
+            '修改时间：' + timeStr + '  修改了以下信息：\n' + changeLines;
+
+        // Add notification for the user themselves
+        FA.Data.addNotification('info', title, content);
+
+        // Add notification for super admin (if the user is not super admin)
+        if (acc.role !== 'superadmin') {
+            FA.Data.addNotification('info', title, content);
+        }
+
+        // Try Windows system notification
+        if (FA.sendWindowsNotification) {
+            FA.sendWindowsNotification(title, content);
+        }
+    },
+
+    /* =====================
+       登录日志 (超管可见)
+       ===================== */
+    recordLoginLog: function(username, action, detail) {
+        FA.loginLogs = FA.Data.loadData(FA.DB_KEYS.loginLogs, []);
+        FA.loginLogs.unshift({
+            id: 'll_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            username: username,
+            action: action,   // 'login' / 'logout' / 'switch' / 'failed'
+            detail: detail,
+            time: new Date().toISOString(),
+            ip: '本地',     // 纯前端, 无后端
+            userAgent: navigator.userAgent.substring(0, 50)
+        });
+        /* 限制 200 条 */
+        if (FA.loginLogs.length > 200) FA.loginLogs = FA.loginLogs.slice(0, 200);
+        FA.Data.saveData(FA.DB_KEYS.loginLogs, FA.loginLogs);
+    },
+
+    /* =====================
+       操作日志 (每个用户都有)
+       ===================== */
+    recordOpLog: function(action, detail) {
+        if (!FA.currentUser) return;
+        FA.opLogs = FA.Data.loadData(FA.DB_KEYS.opLogs, []);
+        FA.opLogs.unshift({
+            id: 'op_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            username: FA.currentUser.username,
+            action: action,
+            detail: detail,
+            time: new Date().toISOString()
+        });
+        if (FA.opLogs.length > 500) FA.opLogs = FA.opLogs.slice(0, 500);
+        FA.Data.saveData(FA.DB_KEYS.opLogs, FA.opLogs);
     }
 };
 
@@ -147,6 +283,32 @@ FA.showSection = function(id, event) {
     /* 关闭用户浮窗 */
     var popup = document.getElementById('userPopup');
     if (popup) popup.classList.remove('open');
+
+    /* 按需重新渲染对应区块 */
+    switch (id) {
+        case 'approvals-section':
+            if (FA.renderApprovals) FA.renderApprovals();
+            break;
+        case 'photos-section':
+            if (FA.renderPhotos) FA.renderPhotos();
+            break;
+        case 'calendar-section':
+            if (FA.renderCalendar) FA.renderCalendar();
+            if (FA.renderEvents) FA.renderEvents();
+            break;
+        case 'family-members':
+            if (FA.renderMembers) FA.renderMembers();
+            break;
+        case 'notifications-section':
+            if (FA.renderNotifications) FA.renderNotifications();
+            break;
+        case 'settings-section':
+            if (FA.Settings && FA.Settings.init) FA.Settings.init();
+            break;
+        case 'welcome-section':
+            if (FA.renderHomeSummary) FA.renderHomeSummary();
+            break;
+    }
 };
 
 FA.updateStats = function() {
