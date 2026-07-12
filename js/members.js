@@ -256,6 +256,7 @@ FA._selectGender = function(el) {
    4. 编辑成员
    ====================================================================== */
 FA._editingIndex = null;
+FA._editingSelf = false;
 
 FA.editMember = function(index) {
     var m = FA.members[index];
@@ -268,12 +269,13 @@ FA.editMember = function(index) {
     }
 
     FA._editingIndex = index;
+    FA._editingSelf = isSelf;
 
     /* 确保字段存在 */
     if (!m.documents) m.documents = [];
     if (!m.bankCards) m.bankCards = [];
 
-    var canViewSensitive = FA.Verify.canViewSensitive(m.username);
+    var canViewSensitive = isSelf || FA.Verify.canViewSensitive(m.username);
     var canChangeRole = FA.currentUser && FA.currentUser.role === 'superadmin';
     var colors = FA.avatarColors || ['#007AFF'];
     var color = colors[index % colors.length];
@@ -394,6 +396,34 @@ FA.editMember = function(index) {
     });
 
     FA.showModal(modalId);
+
+    /* 超管编辑他人时, 自动弹出敏感信息验证 (身份证+证件+银行卡均需要验证) */
+    if (canViewSensitive && !isSelf && !FA.Verify.isVerified('normal')) {
+        setTimeout(function() {
+            FA.Verify.requireVerify('编辑成员敏感信息(身份证/证件)', 'normal', function(success) {
+                if (success) {
+                    /* 身份证/证件已验证, 刷新相关区域 */
+                    var idcardArea = document.getElementById('edit-idcard-area');
+                    if (idcardArea) idcardArea.innerHTML = FA._buildIdCardArea(m, canViewSensitive);
+                    var docsContainer = document.getElementById('edit-docs-container');
+                    if (docsContainer) docsContainer.innerHTML = FA._buildDocsArea(m, canViewSensitive);
+                    FA._refreshDocsActions(canViewSensitive);
+                }
+            });
+        }, 200);
+    }
+    if (canViewSensitive && !isSelf && !FA.Verify.isVerified('bank')) {
+        setTimeout(function() {
+            FA.Verify.requireVerify('编辑成员银行卡信息', 'bank', function(success) {
+                if (success) {
+                    /* 银行卡已验证, 刷新相关区域 */
+                    var cardsContainer = document.getElementById('edit-cards-container');
+                    if (cardsContainer) cardsContainer.innerHTML = FA._buildCardsArea(m, canViewSensitive);
+                    FA._refreshCardsActions(canViewSensitive);
+                }
+            });
+        }, 800);
+    }
 };
 
 /* =====================
@@ -450,7 +480,7 @@ FA._buildIdCardArea = function(m, canView) {
     if (!canView) {
         return '<div class="sensitive-locked no-access">🔒 受保护</div>';
     }
-    if (FA.Verify.isVerified()) {
+    if (FA._editingSelf || FA.Verify.isVerified()) {
         return '<input id="edit-idcard" type="text" value="' + FA._esc(m.idcard) + '" placeholder="请输入身份证号" maxlength="18">';
     }
     return '<div class="sensitive-locked" onclick="FA._revealSensitive()">🔒 点击验证查看</div>';
@@ -460,7 +490,7 @@ FA._buildDocsArea = function(m, canView) {
     if (!canView) {
         return '<div class="sensitive-locked no-access">🔒 受保护</div>';
     }
-    if (FA.Verify.isVerified()) {
+    if (FA._editingSelf || FA.Verify.isVerified()) {
         var html = '';
         if (m.documents && m.documents.length > 0) {
             var docTypes = FA.idDocTypes || [];
@@ -485,7 +515,7 @@ FA._buildCardsArea = function(m, canView) {
     if (!canView) {
         return '<div class="sensitive-locked no-access">🔒 受保护</div>';
     }
-    if (FA.Verify.isVerified('bank')) {
+    if (FA._editingSelf || FA.Verify.isVerified('bank')) {
         var html = '';
         if (m.bankCards && m.bankCards.length > 0) {
             var cardOrgs = FA.cardOrganizations || [];
@@ -514,7 +544,7 @@ FA._buildCardsArea = function(m, canView) {
 FA._refreshDocsActions = function(canView) {
     var actions = document.getElementById('edit-docs-actions');
     if (!actions) return;
-    if (canView && FA.Verify.isVerified()) {
+    if (canView && (FA._editingSelf || FA.Verify.isVerified())) {
         actions.innerHTML = '<button class="btn-add-row" onclick="FA._addDocRow()">+ 添加证件</button>';
     } else {
         actions.innerHTML = '';
@@ -524,7 +554,7 @@ FA._refreshDocsActions = function(canView) {
 FA._refreshCardsActions = function(canView) {
     var actions = document.getElementById('edit-cards-actions');
     if (!actions) return;
-    if (canView && FA.Verify.isVerified('bank')) {
+    if (canView && (FA._editingSelf || FA.Verify.isVerified('bank'))) {
         actions.innerHTML = '<button class="btn-add-row" onclick="FA._addCardRow()">+ 添加银行卡</button>';
     } else {
         actions.innerHTML = '';
