@@ -75,6 +75,7 @@ FA.renderApprovals = function() {
         actionHtml += '<button class="toolbar-btn" style="font-size:12px;padding:4px 12px" onclick="FA.viewApprovalDetail(\'' + a.id + '\')">📄 详情</button>';
         if (canCreate && isApplicant && a.status === 'pending') {
             actionHtml += '<button class="toolbar-btn" style="font-size:12px;padding:4px 12px" onclick="FA.editApproval(\'' + a.id + '\')">✎ 修改</button>';
+            actionHtml += '<button class="toolbar-btn" style="font-size:12px;padding:4px 12px" onclick="FA.withdrawApproval(\'' + a.id + '\')">↶ 撤回</button>';
             actionHtml += '<button class="toolbar-btn danger" style="font-size:12px;padding:4px 12px" onclick="FA.deleteApproval(\'' + a.id + '\')">✕ 删除</button>';
         }
         if (canCreate && isApplicant && (a.status === 'rejected' || a.status === 'approved')) {
@@ -347,6 +348,15 @@ FA._submitApproval = function(isEdit) {
                 { name: '审批人处理', status: 'pending', user: assignTo, time: null }
             ];
 
+            /* 添加历史记录 */
+            if (!existing.history) existing.history = [];
+            existing.history.push({
+                action: '已重新提交',
+                user: FA.currentUser.username,
+                time: existing.modifiedDate,
+                detail: '审批已修改并重新提交'
+            });
+
             FA.Data.saveData(FA.DB_KEYS.approvals, FA.approvals);
             FA.closeModal('create-approval-modal');
             FA.renderApprovals();
@@ -388,7 +398,7 @@ FA._submitApproval = function(isEdit) {
         ],
         createdDate: now,
         history: [
-            { action: '创建', user: FA.currentUser.username, time: now, detail: '审批创建' }
+            { action: '已创建', user: FA.currentUser.username, time: now, detail: '审批创建' }
         ]
     };
 
@@ -476,7 +486,7 @@ FA.resubmitApproval = function(id) {
         { name: '审批人处理', status: 'pending', user: approval.assignTo, time: null }
     ];
     if (!approval.history) approval.history = [];
-    approval.history.push({ action: '重新提交', user: FA.currentUser.username, time: now, detail: '审批重新提交' });
+    approval.history.push({ action: '已重新提交', user: FA.currentUser.username, time: now, detail: '审批重新提交' });
 
     FA.Data.saveData(FA.DB_KEYS.approvals, FA.approvals);
     FA.renderApprovals();
@@ -487,9 +497,7 @@ FA.resubmitApproval = function(id) {
     FA.showToast('审批已重新提交', 'success');
 };
 
-/* =====================
-   删除审批
-   ===================== */
+/* 删除审批 — 留痕：从 approvals 移到 deletedApprovals */
 FA.deleteApproval = function(id) {
     if (!FA.checkPermission('createApproval')) {
         FA.showToast('权限不足', 'error');
@@ -505,10 +513,30 @@ FA.deleteApproval = function(id) {
 
     if (!confirm('确定要删除审批「' + approval.title + '」吗？此操作不可撤销。')) return;
 
+    var now = new Date().toISOString();
+
+    /* 记录删除留痕 */
+    if (!approval.history) approval.history = [];
+    approval.history.push({
+        action: '已删除',
+        user: FA.currentUser.username,
+        time: now,
+        detail: '审批已被申请人删除(留痕)'
+    });
+    approval.status = 'deleted';
+    approval.deletedAt = now;
+    approval.deletedBy = FA.currentUser.username;
+
+    /* 移动到 deletedApprovals, 保留可查 */
+    FA.deletedApprovals = FA.Data.loadData(FA.DB_KEYS.deletedApprovals, []);
+    FA.deletedApprovals.unshift(JSON.parse(JSON.stringify(approval)));
+    FA.Data.saveData(FA.DB_KEYS.deletedApprovals, FA.deletedApprovals);
+
+    /* 从 approvals 移除 */
     FA.approvals = FA.approvals.filter(function(a) { return a.id !== id; });
     FA.Data.saveData(FA.DB_KEYS.approvals, FA.approvals);
     FA.renderApprovals();
-    FA.showToast('审批已删除', 'info');
+    FA.showToast('审批已删除（留痕保留）', 'info');
 };
 
 /* =====================
@@ -522,6 +550,11 @@ FA.viewApprovalDetail = function(id, event) {
     }
 
     var approval = FA.approvals.find(function(a) { return a.id === id; });
+    if (!approval) {
+        /* 在已删除审批(留痕)中查找 */
+        var deleted = FA.Data.loadData(FA.DB_KEYS.deletedApprovals, []);
+        approval = deleted.find(function(a) { return a.id === id; });
+    }
     if (!approval) { FA.showToast('审批不存在', 'error'); return; }
 
     var modalId = 'approval-detail-modal';
@@ -556,6 +589,7 @@ FA.viewApprovalDetail = function(id, event) {
         actionHtml +=
             '<div style="margin-top:10px;display:flex;gap:10px">' +
             '<button class="btn-secondary" onclick="FA.closeModal(\'approval-detail-modal\');FA.editApproval(\'' + approval.id + '\')">✎ 修改详情</button>' +
+            '<button class="btn-secondary" onclick="FA.closeModal(\'approval-detail-modal\');FA.withdrawApproval(\'' + approval.id + '\')">↶ 撤回</button>' +
             '<button class="btn-danger" onclick="FA.closeModal(\'approval-detail-modal\');FA.deleteApproval(\'' + approval.id + '\')">✕ 删除</button>' +
             '</div>';
     }
@@ -671,6 +705,53 @@ FA.approveApproval = function(id, action) {
 };
 
 /* =====================
+   撤回审批
+   ===================== */
+FA.withdrawApproval = function(id) {
+    if (!FA.checkPermission('createApproval')) {
+        FA.showToast('权限不足', 'error');
+        return;
+    }
+
+    var approval = FA.approvals.find(function(a) { return a.id === id; });
+    if (!approval) { FA.showToast('审批不存在', 'error'); return; }
+    if (approval.applicant !== FA.currentUser.username) {
+        FA.showToast('只能撤回自己发起的审批', 'error');
+        return;
+    }
+    if (approval.status !== 'pending') {
+        FA.showToast('只能撤回待审批的审批', 'error');
+        return;
+    }
+
+    if (!confirm('确定要撤回审批「' + approval.title + '」吗？')) return;
+
+    var now = new Date().toISOString();
+    approval.status = 'withdrawn';
+
+    /* 更新步骤状态 */
+    if (approval.steps.length > 1) {
+        approval.steps[1].status = 'withdrawn';
+        approval.steps[1].time = now;
+    }
+
+    /* 添加历史记录 */
+    if (!approval.history) approval.history = [];
+    approval.history.push({
+        action: '已撤回',
+        user: FA.currentUser.username,
+        time: now,
+        detail: '审批已撤回'
+    });
+
+    FA.Data.addNotification('info', '审批已撤回',
+        approval.title + ' · ' + approval.orderNo + ' 已撤回');
+    FA.Data.saveData(FA.DB_KEYS.approvals, FA.approvals);
+    FA.renderApprovals();
+    FA.showToast('审批已撤回', 'info');
+};
+
+/* =====================
    按单号查询
    ===================== */
 FA.queryApprovalByOrder = function(orderNo) {
@@ -714,6 +795,8 @@ FA.getApprovalHistory = function() {
                     '<option value="pending">待审批</option>' +
                     '<option value="approved">已通过</option>' +
                     '<option value="rejected">已驳回</option>' +
+                    '<option value="withdrawn">已撤回</option>' +
+                    '<option value="deleted">已删除</option>' +
                 '</select>' +
                 '<select id="histCategoryFilter" style="padding:6px 12px;border:1px solid rgba(0,0,0,0.1);border-radius:8px;font-size:13px">' +
                     '<option value="">全部类别</option>' +
@@ -758,11 +841,16 @@ FA._renderApprovalHistory = function() {
     var dateFrom = document.getElementById('histDateFrom').value;
     var dateTo = document.getElementById('histDateTo').value;
 
-    var filtered = FA.approvals.filter(function(a) {
+    /* 合并当前审批 + 已删除审批(留痕) */
+    var deletedApprovals = FA.Data.loadData(FA.DB_KEYS.deletedApprovals, []);
+    var all = (FA.approvals || []).concat(deletedApprovals || []);
+
+    var filtered = all.filter(function(a) {
         if (statusFilter && a.status !== statusFilter) return false;
         if (categoryFilter && a.category !== categoryFilter) return false;
-        if (dateFrom && a.createdDate && a.createdDate.substring(0, 10) < dateFrom) return false;
-        if (dateTo && a.createdDate && a.createdDate.substring(0, 10) > dateTo) return false;
+        var dateStr = (a.createdDate || '').substring(0, 10);
+        if (dateFrom && dateStr && dateStr < dateFrom) return false;
+        if (dateTo && dateStr && dateStr > dateTo) return false;
         return true;
     });
 
@@ -772,14 +860,14 @@ FA._renderApprovalHistory = function() {
     }
 
     body.innerHTML = '<div class="approval-list">' + filtered.map(function(a) {
-        var statusName = FA._approvalStatusNames[a.status] || a.status;
+        var statusName = FA._approvalStatusNames[a.status] || (a.status === 'deleted' ? '已删除' : a.status);
         var categoryName = FA._approvalCategoryNames[a.category] || a.category;
         var applicantName = FA._getMemberName(a.applicant);
         var stepHtml = FA._renderApprovalSteps(a);
 
-        return '<div class="approval-item" style="cursor:pointer" onclick="FA.closeModal(\'approval-history-modal\');FA.viewApprovalDetail(\'' + a.id + '\')">' +
+        return '<div class="approval-item" style="cursor:pointer;opacity:' + (a.status === 'deleted' ? '0.7' : '1') + '" onclick="FA.closeModal(\'approval-history-modal\');FA.viewApprovalDetail(\'' + a.id + '\')">' +
             '<div class="approval-item-header">' +
-                '<h4>' + a.title + '</h4>' +
+                '<h4>' + a.title + (a.status === 'deleted' ? ' <span style="font-size:11px;color:#e74c3c">[已删除留痕]</span>' : '') + '</h4>' +
                 '<span class="approval-status ' + a.status + '">' + statusName + '</span>' +
             '</div>' +
             '<div class="approval-meta">' +
