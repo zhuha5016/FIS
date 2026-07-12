@@ -1,0 +1,377 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>zhuha 家庭门户系统</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ======================================================================
+     登录界面
+     ====================================================================== -->
+<div class="login-card" id="loginCard">
+    <h2>欢迎登陆</h2>
+
+    <div class="input-group">
+        <input id="user" placeholder="Username or Phone" autocomplete="off">
+        <div class="underline"><div class="line-effect"></div></div>
+    </div>
+
+    <div class="input-group pass-group">
+        <input id="pass" type="password" placeholder="Password" autocomplete="off">
+        <a href="#" class="forgot-password-link" id="forgotPasswordLink">忘记密码</a>
+        <button class="eye-btn" id="passEye" type="button" aria-label="显示密码">
+            <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+        </button>
+        <div class="underline"><div class="line-effect"></div></div>
+    </div>
+
+    <div class="input-group val-group">
+        <span class="val-label">VAL Code</span>
+        <div class="val-boxes" id="valBoxes">
+            <input type="password" class="val-box" maxlength="1" inputmode="numeric" autocomplete="one-time-code" data-index="0">
+            <input type="password" class="val-box" maxlength="1" inputmode="numeric" data-index="1">
+            <input type="password" class="val-box" maxlength="1" inputmode="numeric" data-index="2">
+            <input type="password" class="val-box" maxlength="1" inputmode="numeric" data-index="3">
+            <input type="password" class="val-box" maxlength="1" inputmode="numeric" data-index="4">
+            <input type="password" class="val-box" maxlength="1" inputmode="numeric" data-index="5">
+        </div>
+        <div class="tz-selector">
+            <button class="tz-btn" id="tzBtn" type="button">
+                <span id="tzLabel">UTC+8 北京</span>
+                <span class="tz-chevron">▼</span>
+            </button>
+            <div class="tz-dropdown" id="tzDropdown">
+                <div class="tz-option" data-tz="UTC+0" data-offset="0"><span class="tz-check">&#10003;</span>UTC+0 伦敦</div>
+                <div class="tz-option selected" data-tz="UTC+8" data-offset="8"><span class="tz-check">&#10003;</span>UTC+8 北京</div>
+                <div class="tz-option" data-tz="UTC-5" data-offset="-5"><span class="tz-check">&#10003;</span>UTC-5 纽约</div>
+                <div class="tz-option" data-tz="UTC+9" data-offset="9"><span class="tz-check">&#10003;</span>UTC+9 东京</div>
+                <div class="tz-option" data-tz="UTC+1" data-offset="1"><span class="tz-check">&#10003;</span>UTC+1 巴黎</div>
+            </div>
+        </div>
+        <button class="eye-btn" id="valEye" type="button" aria-label="显示VAL">
+            <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+        </button>
+        <div class="underline"><div class="line-effect"></div></div>
+    </div>
+
+    <button class="btn-login" id="loginBtn">LOGIN</button>
+</div>
+
+<!-- ======================================================================
+     主界面
+     ====================================================================== -->
+<div class="main-bg"></div>
+<div class="main-container" id="mainContainer">
+
+    <!-- 侧边栏 -->
+    <div class="sidebar" id="sidebar">
+        <div class="user-profile-wrapper" style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+            <div class="user-profile">
+                <div class="user-avatar" id="userAvatar">Z</div>
+                <div class="user-info">
+                    <h3 id="currentUser">用户</h3>
+                    <span class="role-badge admin" id="currentRole">管理员</span>
+                </div>
+            </div>
+            <div class="network-status" id="networkStatus" title="网络状态">
+                <span class="network-icon" id="networkIcon">●</span>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="#" class="active" onclick="FA.showSection('welcome-section', event)"><span class="menu-icon">🏠</span>首页</a></li>
+            <li><a href="#" onclick="FA.showSection('family-members', event)"><span class="menu-icon">👥</span>家庭成员</a></li>
+            <li><a href="#" onclick="FA.showSection('devices-section', event)"><span class="menu-icon">🔌</span>家庭设备</a></li>
+            <li><a href="#" onclick="FA.showSection('photos-section', event)"><span class="menu-icon">🖼️</span>家庭相册</a></li>
+            <li><a href="#" onclick="FA.showSection('calendar-section', event)"><span class="menu-icon">📅</span>家庭日历</a></li>
+            <li><a href="#" onclick="FA.showSection('approvals-section', event)"><span class="menu-icon">📋</span>审核与报告</a></li>
+            <li><a href="#" onclick="FA.showSection('notifications-section', event)"><span class="menu-icon">🔔</span>消息通知<span class="menu-badge" id="notifBadge" style="display:none">0</span></a></li>
+            <li><a href="#" onclick="FA.showSection('settings-section', event)"><span class="menu-icon">⚙️</span>系统设置</a></li>
+        </ul>
+        <button class="logout-btn" onclick="FA.Auth.logout()">🚪 退出登录</button>
+    </div>
+
+    <!-- 用户浮窗 (微信风格) -->
+    <div class="user-popup" id="userPopup">
+        <div class="user-popup-header">
+            <div class="user-popup-avatar" id="popupAvatar">Z</div>
+            <div class="user-popup-info">
+                <h4 id="popupName">用户</h4>
+                <p id="popupRole">角色</p>
+            </div>
+        </div>
+        <div class="user-popup-body">
+            <div class="user-popup-item" data-action="profile">
+                <span class="icon">👤</span>个人信息
+            </div>
+            <div class="user-popup-item" data-action="settings">
+                <span class="icon">⚙️</span>系统设置
+            </div>
+            <div class="user-popup-divider"></div>
+            <div class="user-popup-item user-popup-switch" data-action="switch">
+                <span class="icon">🔄</span>切换用户
+            </div>
+            <div class="user-popup-item" data-action="logout" style="color:#e74c3c">
+                <span class="icon">🚪</span>退出登录
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="main-content">
+
+        <!-- ===== 首页 ===== -->
+        <div id="welcome-section" class="content-section" style="display:block">
+            <div class="welcome-banner">
+                <h2>欢迎回家，<span id="welcomeUser">zhuha</span>！</h2>
+                <p>今天是 <span id="currentDate"></span></p>
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-num" id="msgCount">0</span>
+                        <span class="stat-label">新消息</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num" id="todoCount">0</span>
+                        <span class="stat-label">待办事项</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num" id="deviceOnCount">0</span>
+                        <span class="stat-label">设备在线</span>
+                    </div>
+                </div>
+                <button class="action-btn" onclick="FA.showModal('add-event-modal')">＋ 添加新日程</button>
+            </div>
+
+            <!-- 布局编辑栏 -->
+            <div class="dashboard-edit-bar" id="dashboardEditBar">
+                <div class="hint">📋 长按拖动卡片重新排列，点击红叉删除卡片</div>
+                <button class="save-layout-btn" onclick="FA.saveLayout()">完成</button>
+            </div>
+
+            <div class="card-grid" id="homeCardGrid">
+                <div class="card" data-card-id="schedule">
+                    <div class="card-header"><h3>家庭日程</h3><div class="card-icon blue">📅</div></div>
+                    <div class="card-content" id="homeScheduleList"></div>
+                    <div class="card-footer"><span id="scheduleNum">0个日程</span><a onclick="FA.showSection('calendar-section')">查看全部</a></div>
+                    <button class="card-remove" onclick="FA.removeCard('schedule')">×</button>
+                </div>
+                <div class="card" data-card-id="devices">
+                    <div class="card-header"><h3>设备状态</h3><div class="card-icon green">🔌</div></div>
+                    <div class="card-content" id="homeDeviceSummary"></div>
+                    <div class="card-footer"><span id="deviceStatusText">—</span><a onclick="FA.showSection('devices-section')">查看全部</a></div>
+                    <button class="card-remove" onclick="FA.removeCard('devices')">×</button>
+                </div>
+                <div class="card" data-card-id="members">
+                    <div class="card-header"><h3>家庭成员</h3><div class="card-icon orange">👥</div></div>
+                    <div class="card-content" id="homeMemberList"></div>
+                    <div class="card-footer"><span id="memberNum">—</span><a onclick="FA.showSection('family-members')">查看全部</a></div>
+                    <button class="card-remove" onclick="FA.removeCard('members')">×</button>
+                </div>
+                <div class="card" data-card-id="notifications">
+                    <div class="card-header"><h3>近期消息</h3><div class="card-icon purple">🔔</div></div>
+                    <div class="card-content" id="homeNotifList" style="font-size:13px;color:#666"></div>
+                    <div class="card-footer"><a onclick="FA.showSection('notifications-section')">查看全部</a></div>
+                    <button class="card-remove" onclick="FA.removeCard('notifications')">×</button>
+                </div>
+                <div class="card todo-card" data-card-id="todo">
+                    <div class="card-header"><h3>📝 待办事项</h3></div>
+                    <div class="card-content">
+                        <div class="todo-input-row">
+                            <input type="text" id="todoInput" placeholder="添加待办..." onkeypress="if(event.key==='Enter')FA.addTodo()">
+                            <button class="add-btn" onclick="FA.addTodo()">添加</button>
+                        </div>
+                        <ul class="todo-list" id="todoList"></ul>
+                    </div>
+                    <button class="card-remove" onclick="FA.removeCard('todo')">×</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 家庭成员 ===== -->
+        <div id="family-members" class="content-section">
+            <h1 class="page-title">家庭成员管理</h1>
+            <p class="page-subtitle">管理您的家庭成员信息</p>
+            <div class="toolbar">
+                <button class="toolbar-btn" onclick="FA.showModal('add-member-modal')" data-permission="addMember">＋ 添加成员</button>
+            </div>
+            <ul class="member-list" id="memberList"></ul>
+        </div>
+
+        <!-- ===== 家庭设备 ===== -->
+        <div id="devices-section" class="content-section">
+            <h1 class="page-title">家庭设备控制</h1>
+            <p class="page-subtitle">远程控制您的家庭智能设备</p>
+            <div class="toolbar">
+                <button class="toolbar-btn" onclick="FA.showModal('add-device-modal')" data-permission="addDevice">＋ 添加设备</button>
+            </div>
+            <div class="device-grid" id="deviceGrid"></div>
+        </div>
+
+        <!-- ===== 家庭相册 ===== -->
+        <div id="photos-section" class="content-section">
+            <h1 class="page-title">家庭相册</h1>
+            <p class="page-subtitle">记录美好家庭时光</p>
+            <div class="toolbar">
+                <button class="toolbar-btn" onclick="FA.createAlbum()" data-permission="createAlbum">📁 创建相册</button>
+            </div>
+            <div id="albumView"></div>
+            <div id="photoView" style="display:none">
+                <div class="toolbar">
+                    <button class="toolbar-btn" onclick="FA.showUploadDialog()" data-permission="addPhoto">📷 上传照片</button>
+                    <button class="toolbar-btn" onclick="FA.filterPhotos('albums')">← 返回相册</button>
+                </div>
+                <div class="photo-grid" id="photoGrid"></div>
+            </div>
+        </div>
+
+        <!-- ===== 家庭日历 ===== -->
+        <div id="calendar-section" class="content-section">
+            <h1 class="page-title">家庭日历</h1>
+            <p class="page-subtitle">管理家庭日程和活动</p>
+            <div class="toolbar">
+                <button class="toolbar-btn" onclick="FA.showModal('add-event-modal')" data-permission="addEvent">＋ 新建日程</button>
+            </div>
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <h3 id="calendarMonth" onclick="FA.openDatePicker()"></h3>
+                    <div class="calendar-nav">
+                        <div class="calendar-view-tabs" id="calendarViewTabs">
+                            <div class="calendar-view-tab active" onclick="FA.changeCalendarView('month')">月</div>
+                            <div class="calendar-view-tab" onclick="FA.changeCalendarView('day')">日</div>
+                        </div>
+                        <button onclick="FA.changeMonth(-1)">◀</button>
+                        <button onclick="FA.goToToday()">今天</button>
+                        <button onclick="FA.changeMonth(1)">▶</button>
+                    </div>
+                </div>
+                <div id="calendarContent"></div>
+            </div>
+            <div class="event-list" id="eventList"></div>
+        </div>
+
+        <!-- ===== 审核与报告 ===== -->
+        <div id="approvals-section" class="content-section">
+            <h1 class="page-title">审核与报告</h1>
+            <p class="page-subtitle">审批流程管理与查询</p>
+            <div id="approvalsContent"></div>
+        </div>
+
+        <!-- ===== 消息通知 ===== -->
+        <div id="notifications-section" class="content-section">
+            <h1 class="page-title">消息通知</h1>
+            <p class="page-subtitle">查看系统通知和消息</p>
+            <div class="toolbar">
+                <button class="toolbar-btn" onclick="FA.markAllRead()">✓ 全部已读</button>
+                <button class="toolbar-btn danger" onclick="FA.clearNotifications()" data-permission="manageNotifications">🗑 清空通知</button>
+            </div>
+            <ul class="notification-list" id="notificationList"></ul>
+        </div>
+
+        <!-- ===== 系统设置 (含个人信息) ===== -->
+        <div id="settings-section" class="content-section">
+            <h1 class="page-title">系统设置</h1>
+            <p class="page-subtitle">管理个人信息和系统配置</p>
+            <div id="settingsContent"></div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2025-2026 zhuha 家庭门户系统 | VAL 安全认证 v3.0</p>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================================
+     模态框
+     ====================================================================== -->
+
+<!-- 添加成员 -->
+<div id="add-member-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close" onclick="FA.closeModal('add-member-modal')">&times;</button>
+        <div class="modal-header"><h3>添加家庭成员</h3></div>
+        <div class="modal-field"><label>姓名（英文）</label><input id="memberName" placeholder="请输入英文名"></div>
+        <div class="modal-field"><label>姓名（中文）</label><input id="memberNameCn" placeholder="请输入中文名"></div>
+        <div class="modal-field">
+            <label>性别</label>
+            <div class="gender-tabs">
+                <div class="gender-tab active" data-gender="男" onclick="FA._selectGender(this)">男</div>
+                <div class="gender-tab" data-gender="女" onclick="FA._selectGender(this)">女</div>
+            </div>
+        </div>
+        <div class="modal-field"><label>手机号</label><input id="memberPhone" placeholder="请输入手机号"></div>
+        <div class="modal-field"><label>角色</label><select id="memberRole"><option value="user">普通用户</option><option value="senior">高级管理员</option><option value="superadmin">最高管理员</option></select></div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="FA.closeModal('add-member-modal')">取消</button>
+            <button class="btn-primary" onclick="FA.saveMemberNew()">添加</button>
+        </div>
+    </div>
+</div>
+
+<!-- 添加设备 -->
+<div id="add-device-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close" onclick="FA.closeModal('add-device-modal')">&times;</button>
+        <div class="modal-header"><h3>添加新设备</h3></div>
+        <div class="modal-field"><label>设备名称</label><input id="deviceName" placeholder="如：卧室灯"></div>
+        <div class="modal-field"><label>位置</label><input id="deviceLocation" placeholder="如：卧室"></div>
+        <div class="modal-field"><label>设备类型</label><select id="deviceType"><option>灯光</option><option>空调</option><option>电视</option><option>音响</option><option>其他</option></select></div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="FA.closeModal('add-device-modal')">取消</button>
+            <button class="btn-primary" onclick="FA.saveDevice()">添加</button>
+        </div>
+    </div>
+</div>
+
+<!-- 新建日程 -->
+<div id="add-event-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close" onclick="FA.closeModal('add-event-modal')">&times;</button>
+        <div class="modal-header"><h3>新建日程</h3></div>
+        <div class="modal-field"><label>标题</label><input id="eventTitle" placeholder="日程标题"></div>
+        <div class="modal-field"><label>日期</label><input type="date" id="eventDate"></div>
+        <div class="modal-field"><label>时间</label><input type="time" id="eventTime"></div>
+        <div class="modal-field"><label>地点</label><input id="eventLocation" placeholder="活动地点（可选）"></div>
+        <div class="modal-field"><label>类型</label><select id="eventType"><option value="custom">自定义</option><option value="birthday">生日</option><option value="holiday">节日</option><option value="solar-term">节气</option></select></div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="FA.closeModal('add-event-modal')">取消</button>
+            <button class="btn-primary" onclick="FA.saveEvent()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 切换用户 -->
+<div id="switch-user-modal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close" onclick="FA.closeModal('switch-user-modal')">&times;</button>
+        <div class="modal-header"><h3>切换用户</h3></div>
+        <div id="switchUserBody"></div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 联系人浮窗 -->
+<div class="contact-popup" id="contactPopup"></div>
+
+<!-- ======================================================================
+     JavaScript 模块加载 (按依赖顺序)
+     ====================================================================== -->
+<script src="js/config.js"></script>
+<script src="js/val.js"></script>
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/verify.js"></script>
+<script src="js/members.js"></script>
+<script src="js/photos.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/approvals.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
