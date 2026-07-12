@@ -1,6 +1,6 @@
 /* ======================================================================
    verify.js - 身份验证系统
-   3种验证方式: 手机号+VAL / 身份证号+VAL / 密码
+   5种验证方式: 手机号+VAL / 身份证号+VAL / 密码 / 密保问题+VAL / 最高管理员VAL
    银行卡等高敏感信息: 密码+CVV
    10分钟会话保持
    身份证本地校验算法
@@ -73,22 +73,43 @@ FA.Verify = {
         if (!modal) {
             modal = this.createVerifyModal();
             document.body.appendChild(modal);
+        } else {
+            /* 移到 body 最后，确保 DOM 顺序在最顶层 */
+            document.body.appendChild(modal);
         }
+
+        /* z-index 设为 3000，高于普通 modal 的 1000 */
+        modal.style.zIndex = '3000';
 
         document.getElementById('authVerifyTitle').textContent = purpose || '身份验证';
         document.getElementById('authVerifyPurpose').textContent = '为了保护您的敏感信息，请完成身份验证';
 
+        /* 6 种验证方式全部显示在 modal 中 (5 normal + 1 bank)
+           用户自选 — 不再分流 */
         var tabs = modal.querySelectorAll('.auth-verify-tab');
         var methodAreas = modal.querySelectorAll('.auth-verify-method-area');
-        if (level === 'bank') {
-            tabs.forEach(function(t) { t.style.display = 'none'; });
-            methodAreas.forEach(function(a) { a.style.display = 'none'; });
-            document.getElementById('authVerifyBankArea').style.display = 'block';
-        } else {
-            tabs.forEach(function(t) { t.style.display = ''; });
-            tabs[0].classList.add('active');
-            tabs[0].click();
+        tabs.forEach(function(t) { t.style.display = ''; });
+        methodAreas.forEach(function(a) { a.style.display = 'none'; });
+
+        /* 隐藏最高管理员VAL标签 (如果当前用户是superadmin) */
+        var adminTab = modal.querySelector('[data-method="adminval"]');
+        if (adminTab) {
+            adminTab.style.display = (FA.currentUser.role === 'superadmin') ? 'none' : '';
         }
+
+        /* 隐藏银行卡方式 (非超管不显示 — 仅超管/特定操作需要) */
+        var bankTab = modal.querySelector('[data-method="bank"]');
+        if (bankTab) {
+            bankTab.style.display = (level === 'bank') ? '' : 'none';
+        }
+        var bankArea = document.getElementById('authVerifyBankArea');
+        if (bankArea) {
+            bankArea.style.display = 'none';
+        }
+
+        /* 默认显示第一个标签 */
+        tabs[0].classList.add('active');
+        tabs[0].click();
 
         var confirmBtn = document.getElementById('authVerifyConfirm');
         confirmBtn.onclick = function() { self.doVerify(level, callback); };
@@ -109,6 +130,9 @@ FA.Verify = {
                 '<div class="auth-verify-tab active" data-method="phone">手机号+VAL</div>' +
                 '<div class="auth-verify-tab" data-method="idcard">身份证+VAL</div>' +
                 '<div class="auth-verify-tab" data-method="password">密码</div>' +
+                '<div class="auth-verify-tab" data-method="security">密保问题+VAL</div>' +
+                '<div class="auth-verify-tab" data-method="adminval">最高管理员VAL</div>' +
+                '<div class="auth-verify-tab" data-method="bank">银行卡+VAL</div>' +
             '</div>' +
 
             '<div class="auth-verify-method-area" id="methodPhone">' +
@@ -143,9 +167,63 @@ FA.Verify = {
                 '<div class="modal-field"><label>登录密码</label><input id="verifyPassword" type="password" placeholder="请输入登录密码"></div>' +
             '</div>' +
 
+            '<div class="auth-verify-method-area" id="methodSecurity" style="display:none">' +
+                '<div class="modal-field">' +
+                    '<label>选择密保问题</label>' +
+                    '<select id="verifySecQ" onchange="FA.Verify._updateSecQuestion()">' +
+                        '<option value="0">密保问题1</option>' +
+                        '<option value="1">密保问题2</option>' +
+                        '<option value="2">密保问题3</option>' +
+                    '</select>' +
+                '</div>' +
+                '<div class="modal-field">' +
+                    '<label>问题</label>' +
+                    '<div id="verifySecQuestionText" style="padding:10px;background:rgba(0,0,0,0.03);border-radius:8px;font-size:13px">请先设置密保问题</div>' +
+                '</div>' +
+                '<div class="modal-field">' +
+                    '<label>答案</label>' +
+                    '<input id="verifySecAnswer" type="text" placeholder="请输入答案">' +
+                '</div>' +
+                '<div class="modal-field"><label>VAL Code</label>' +
+                    '<div class="val-input-row">' +
+                        '<input class="val-input-box sec-val" maxlength="1" data-vi="0" inputmode="numeric">' +
+                        '<input class="val-input-box sec-val" maxlength="1" data-vi="1" inputmode="numeric">' +
+                        '<input class="val-input-box sec-val" maxlength="1" data-vi="2" inputmode="numeric">' +
+                        '<input class="val-input-box sec-val" maxlength="1" data-vi="3" inputmode="numeric">' +
+                        '<input class="val-input-box sec-val" maxlength="1" data-vi="4" inputmode="numeric">' +
+                        '<input class="val-input-box sec-val" maxlength="1" data-vi="5" inputmode="numeric">' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div class="auth-verify-method-area" id="methodAdminVal" style="display:none">' +
+                '<p style="font-size:13px;color:#888;margin-bottom:14px">请联系最高管理员获取VAL验证码</p>' +
+                '<div class="modal-field">' +
+                    '<label>最高管理员VAL Code</label>' +
+                    '<div class="val-input-row">' +
+                        '<input class="val-input-box admin-val" maxlength="1" data-vi="0" inputmode="numeric">' +
+                        '<input class="val-input-box admin-val" maxlength="1" data-vi="1" inputmode="numeric">' +
+                        '<input class="val-input-box admin-val" maxlength="1" data-vi="2" inputmode="numeric">' +
+                        '<input class="val-input-box admin-val" maxlength="1" data-vi="3" inputmode="numeric">' +
+                        '<input class="val-input-box admin-val" maxlength="1" data-vi="4" inputmode="numeric">' +
+                        '<input class="val-input-box admin-val" maxlength="1" data-vi="5" inputmode="numeric">' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
             '<div id="authVerifyBankArea" style="display:none">' +
+                '<p style="font-size:13px;color:#888;margin-bottom:14px">请输入登录密码和动态验证码以查看银行卡</p>' +
                 '<div class="modal-field"><label>登录密码</label><input id="verifyBankPass" type="password" placeholder="请输入登录密码"></div>' +
-                '<div class="modal-field"><label>CVV码</label><input id="verifyCVV" type="password" maxlength="4" placeholder="请输入CVV码"></div>' +
+                '<div class="modal-field"><label>VAL Code</label>' +
+                    '<div class="val-input-row">' +
+                        '<input class="val-input-box bank-val" maxlength="1" data-vi="0" inputmode="numeric">' +
+                        '<input class="val-input-box bank-val" maxlength="1" data-vi="1" inputmode="numeric">' +
+                        '<input class="val-input-box bank-val" maxlength="1" data-vi="2" inputmode="numeric">' +
+                        '<input class="val-input-box bank-val" maxlength="1" data-vi="3" inputmode="numeric">' +
+                        '<input class="val-input-box bank-val" maxlength="1" data-vi="4" inputmode="numeric">' +
+                        '<input class="val-input-box bank-val" maxlength="1" data-vi="5" inputmode="numeric">' +
+                    '</div>' +
+                '</div>' +
             '</div>' +
 
             '<div class="auth-verify-remember">' +
@@ -163,6 +241,9 @@ FA.Verify = {
         div.innerHTML = html;
         var modal = div.firstElementChild;
 
+        /* z-index 设为 3000，高于普通 modal 的 1000 */
+        modal.style.zIndex = '3000';
+
         /* 绑定选项卡切换 */
         modal.querySelectorAll('.auth-verify-tab').forEach(function(tab) {
             tab.addEventListener('click', function() {
@@ -173,14 +254,34 @@ FA.Verify = {
                 if (method === 'phone') document.getElementById('methodPhone').style.display = 'block';
                 if (method === 'idcard') document.getElementById('methodIdcard').style.display = 'block';
                 if (method === 'password') document.getElementById('methodPassword').style.display = 'block';
+                if (method === 'security') {
+                    document.getElementById('methodSecurity').style.display = 'block';
+                    FA.Verify._updateSecQuestion();
+                }
+                if (method === 'adminval') document.getElementById('methodAdminVal').style.display = 'block';
+                if (method === 'bank') document.getElementById('authVerifyBankArea').style.display = 'block';
             });
         });
 
         /* VAL 输入框: 粘贴自动填充 / 无光标 / 连贯删除 / 长按清空 */
         this.setupVALInputs(modal.querySelectorAll('#methodPhone .val-input-box'));
         this.setupVALInputs(modal.querySelectorAll('#methodIdcard .val-input-box'));
+        this.setupVALInputs(modal.querySelectorAll('#methodSecurity .val-input-box'));
+        this.setupVALInputs(modal.querySelectorAll('#methodAdminVal .val-input-box'));
+        this.setupVALInputs(modal.querySelectorAll('#authVerifyBankArea .val-input-box'));
 
         return modal;
+    },
+
+    /* 更新密保问题显示文本 */
+    _updateSecQuestion: function() {
+        var idx = parseInt(document.getElementById('verifySecQ').value);
+        var acc = FA.accounts[FA.currentUser.username];
+        var q = (acc.securityQuestions && acc.securityQuestions[idx] && acc.securityQuestions[idx].question)
+            ? acc.securityQuestions[idx].question
+            : '未设置密保问题';
+        var el = document.getElementById('verifySecQuestionText');
+        if (el) el.textContent = q;
     },
 
     /* VAL 六框输入: 增强版
@@ -322,38 +423,61 @@ FA.Verify = {
         var success = false;
         var remember = document.getElementById('authVerifyRemember').checked;
 
-        if (level === 'bank') {
+        var activeTab = document.querySelector('.auth-verify-tab.active');
+        var method = activeTab ? activeTab.dataset.method : 'phone';
+
+        if (method === 'bank') {
+            /* 银行卡验证: 密码 + VAL 码 (无 CVV) */
             var bankPass = document.getElementById('verifyBankPass').value;
-            var cvv = document.getElementById('verifyCVV').value;
-            if (bankPass === acc.password && cvv.length >= 3) {
+            var bankValInputs = document.querySelectorAll('#authVerifyBankArea .val-input-box');
+            var bankValStr = Array.from(bankValInputs).map(function(b) { return b.value; }).join('');
+            var expectedBankVal = await FA.generateVAL(FA.selectedOffset);
+            if (bankPass === acc.password && bankValStr === expectedBankVal) {
                 success = true;
             }
-        } else {
-            var activeTab = document.querySelector('.auth-verify-tab.active');
-            var method = activeTab ? activeTab.dataset.method : 'phone';
-
-            if (method === 'phone') {
-                var phone = document.getElementById('verifyPhone').value;
-                var valInputs = document.querySelectorAll('#methodPhone .val-input-box');
-                var valStr = Array.from(valInputs).map(function(b) { return b.value; }).join('');
-                var expectedVal = await FA.generateVAL(FA.selectedOffset);
-                if (phone === acc.phone.replace(/\*/g, '').replace(/\D/g, '').substring(0, 11) && valStr === expectedVal) {
-                    success = true;
-                }
-                if (!success && phone === acc.phone.substring(acc.phone.length - 4)) {
-                    if (valStr === expectedVal) success = true;
-                }
-            } else if (method === 'idcard') {
-                var idcard = document.getElementById('verifyIdcard').value;
-                var idcValInputs = document.querySelectorAll('#methodIdcard .val-input-box');
-                var idcValStr = Array.from(idcValInputs).map(function(b) { return b.value; }).join('');
-                var expectedVal2 = await FA.generateVAL(FA.selectedOffset);
-                if (this.validateIDCard(idcard) && idcValStr === expectedVal2) {
-                    success = true;
-                }
-            } else if (method === 'password') {
-                var pass = document.getElementById('verifyPassword').value;
-                if (pass === acc.password) success = true;
+        } else if (method === 'phone') {
+            var phone = document.getElementById('verifyPhone').value;
+            var valInputs = document.querySelectorAll('#methodPhone .val-input-box');
+            var valStr = Array.from(valInputs).map(function(b) { return b.value; }).join('');
+            var expectedVal = await FA.generateVAL(FA.selectedOffset);
+            if (phone === acc.phone.replace(/\*/g, '').replace(/\D/g, '').substring(0, 11) && valStr === expectedVal) {
+                success = true;
+            }
+            if (!success && phone === acc.phone.substring(acc.phone.length - 4)) {
+                if (valStr === expectedVal) success = true;
+            }
+        } else if (method === 'idcard') {
+            var idcard = document.getElementById('verifyIdcard').value;
+            var idcValInputs = document.querySelectorAll('#methodIdcard .val-input-box');
+            var idcValStr = Array.from(idcValInputs).map(function(b) { return b.value; }).join('');
+            var expectedVal2 = await FA.generateVAL(FA.selectedOffset);
+            if (this.validateIDCard(idcard) && idcValStr === expectedVal2) {
+                success = true;
+            }
+        } else if (method === 'password') {
+            var pass = document.getElementById('verifyPassword').value;
+            if (pass === acc.password) success = true;
+        } else if (method === 'security') {
+            var secQIndex = parseInt(document.getElementById('verifySecQ').value);
+            var secAnswer = document.getElementById('verifySecAnswer').value.trim();
+            var secValInputs = document.querySelectorAll('#methodSecurity .val-input-box');
+            var secValStr = Array.from(secValInputs).map(function(b) { return b.value; }).join('');
+            var expectedVal3 = await FA.generateVAL(FA.selectedOffset);
+            if (acc.securityQuestions && acc.securityQuestions[secQIndex] &&
+                acc.securityQuestions[secQIndex].answer &&
+                acc.securityQuestions[secQIndex].answer.toLowerCase() === secAnswer.toLowerCase() &&
+                secValStr === expectedVal3) {
+                success = true;
+            }
+        } else if (method === 'adminval') {
+            var adminValInputs = document.querySelectorAll('#methodAdminVal .val-input-box');
+            var adminValStr = Array.from(adminValInputs).map(function(b) { return b.value; }).join('');
+            /* 找到最高管理员 */
+            var adminUsername = Object.keys(FA.accounts).find(function(k) { return FA.accounts[k].role === 'superadmin'; });
+            /* 使用相同 offset 生成 VAL (VAL 基于时间，同一 offset 下所有人相同) */
+            var expectedVal4 = await FA.generateVAL(FA.selectedOffset);
+            if (adminValStr === expectedVal4) {
+                success = true;
             }
         }
 
@@ -480,18 +604,31 @@ FA.Verify = {
             '<p style="font-size:13px;color:#888;margin-bottom:14px">请先验证之前的实名信息</p>' +
             '<div class="modal-field"><label>原姓名</label><input id="oldRnName" type="text" placeholder="请输入之前的姓名"></div>' +
             '<div class="modal-field"><label>原身份证号</label><input id="oldRnIdcard" type="text" placeholder="请输入之前的身份证号" maxlength="18"></div>' +
-            '<div class="modal-field"><label>CVV码</label><input id="oldRnCVV" type="password" maxlength="4" placeholder="请输入CVV码"></div>' +
+            '<div class="modal-field"><label>VAL Code</label>' +
+                '<div class="val-input-row">' +
+                    '<input class="val-input-box rn-val" maxlength="1" data-vi="0" inputmode="numeric">' +
+                    '<input class="val-input-box rn-val" maxlength="1" data-vi="1" inputmode="numeric">' +
+                    '<input class="val-input-box rn-val" maxlength="1" data-vi="2" inputmode="numeric">' +
+                    '<input class="val-input-box rn-val" maxlength="1" data-vi="3" inputmode="numeric">' +
+                    '<input class="val-input-box rn-val" maxlength="1" data-vi="4" inputmode="numeric">' +
+                    '<input class="val-input-box rn-val" maxlength="1" data-vi="5" inputmode="numeric">' +
+                '</div>' +
+            '</div>' +
             '<div class="modal-actions">' +
                 '<button class="btn-secondary" onclick="FA.closeModal(\'realname-verify-modal\')">取消</button>' +
                 '<button class="btn-primary" id="oldRnSubmit">验证并修改</button>' +
             '</div>';
 
-        document.getElementById('oldRnSubmit').onclick = function() {
+        this.setupVALInputs(modal.querySelectorAll('.rn-val'));
+
+        document.getElementById('oldRnSubmit').onclick = async function() {
             var name = document.getElementById('oldRnName').value.trim();
             var idcard = document.getElementById('oldRnIdcard').value.trim();
-            var cvv = document.getElementById('oldRnCVV').value;
+            var rnValInputs = modal.querySelectorAll('.rn-val');
+            var rnValStr = Array.from(rnValInputs).map(function(b) { return b.value; }).join('');
+            var expectedVal = await FA.generateVAL(FA.selectedOffset);
 
-            if (name === oldVerify.name && idcard === oldVerify.idcard && cvv.length >= 3) {
+            if (name === oldVerify.name && idcard === oldVerify.idcard && rnValStr === expectedVal) {
                 self.showVerifyForm(modal, oldVerify.username);
             } else {
                 FA.showToast('验证失败，请检查信息', 'error');
