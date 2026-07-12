@@ -9,11 +9,11 @@ window.FA = window.FA || {};
    账号体系 (用户名改为英文)
    ===================== */
 FA.accounts = {
-    "zhuha":      { password: "zhuha106424", role: "superadmin", name: "zhuha",   nameCn: "朱哈",   phone: "138****0001", email: "zhuha@family.local", gender: "男" },
-    "zhunengxin": { password: "19770714",   role: "senior",    name: "zhunengxin", nameCn: "朱能新", phone: "139****0002", email: "zhunengxin@family.local", gender: "男" },
-    "huguili":    { password: "19800328",   role: "senior",    name: "huguili",    nameCn: "胡桂丽", phone: "137****0003", email: "huguili@family.local", gender: "女" },
-    "zhurenmin":  { password: "19430513",   role: "user",      name: "zhurenmin",  nameCn: "朱人民", phone: "136****0004", email: "zhurenmin@family.local", gender: "男" },
-    "luoaiyu":    { password: "19520606",   role: "user",      name: "luoaiyu",    nameCn: "罗爱玉", phone: "135****0005", email: "luoaiyu@family.local", gender: "女" }
+    "zhuha":      { password: "zhuha106424", role: "superadmin", name: "zhuha",   nameCn: "朱哈",   phone: "138****0001", email: "zhuha@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "zhunengxin": { password: "19770714",   role: "senior",    name: "zhunengxin", nameCn: "朱能新", phone: "139****0002", email: "zhunengxin@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "huguili":    { password: "19800328",   role: "senior",    name: "huguili",    nameCn: "胡桂丽", phone: "137****0003", email: "huguili@family.local", gender: "女", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "zhurenmin":  { password: "19430513",   role: "user",      name: "zhurenmin",  nameCn: "朱人民", phone: "136****0004", email: "zhurenmin@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "luoaiyu":    { password: "19520606",   role: "user",      name: "luoaiyu",    nameCn: "罗爱玉", phone: "135****0005", email: "luoaiyu@family.local", gender: "女", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] }
 };
 
 /* 角色显示名映射 */
@@ -89,7 +89,10 @@ FA.DB_KEYS = {
     approvals: 'fi_approvals',
     layout: 'fi_dashboard_layout',
     verifySession: 'fi_verify_session',
-    userVerify: 'fi_user_verified' // 存储每个用户的实名认证状态
+    userVerify: 'fi_user_verified', // 存储每个用户的实名认证状态
+    deletedApprovals: 'fi_deleted_approvals', // 删除的审批(留痕)
+    loginLogs: 'fi_login_logs',     // 登录日志(超管可见)
+    opLogs: 'fi_op_logs'            // 操作日志(每个用户都有)
 };
 
 /* =====================
@@ -134,8 +137,106 @@ FA.avatarColors = ['#007AFF','#28a745','#FF9800','#9C27B0','#E91E63','#00BCD4','
    当前用户状态
    ===================== */
 FA.currentUser = null;
+FA.currentLang = localStorage.getItem('fi_language') || 'zh';
 FA.selectedTimezone = 'UTC+8';
 FA.selectedOffset = 8;
+
+/* =====================
+   国际化 (i18n)
+   ===================== */
+FA.i18n = {
+    welcome:              { zh: '欢迎登陆',          en: 'Welcome',              ja: 'ようこそ' },
+    usernamePlaceholder:  { zh: '用户名或手机号',     en: 'Username or Phone',    ja: 'ユーザー名または電話番号' },
+    passwordPlaceholder:  { zh: '密码',              en: 'Password',             ja: 'パスワード' },
+    login:                { zh: '登录',              en: 'LOGIN',                ja: 'ログイン' },
+    home:                 { zh: '首页',              en: 'Home',                 ja: 'ホーム' },
+    familyMembers:        { zh: '家庭成员',          en: 'Family Members',       ja: '家族メンバー' },
+    devices:              { zh: '家庭设备',          en: 'Devices',              ja: 'デバイス' },
+    photos:               { zh: '家庭相册',          en: 'Photos',               ja: 'アルバム' },
+    calendar:             { zh: '家庭日历',          en: 'Calendar',             ja: 'カレンダー' },
+    approvals:            { zh: '审核与报告',         en: 'Approvals',            ja: '承認' },
+    notifications:        { zh: '消息通知',          en: 'Notifications',        ja: '通知' },
+    settings:             { zh: '系统设置',          en: 'Settings',             ja: '設定' },
+    profile:              { zh: '个人信息',          en: 'Profile',              ja: 'プロフィール' },
+    accountSecurity:      { zh: '账号与安全',         en: 'Account & Security',   ja: 'アカウントとセキュリティ' },
+    dataManagement:       { zh: '数据管理',          en: 'Data Management',      ja: 'データ管理' },
+    aboutSystem:          { zh: '关于系统',          en: 'About',                ja: 'システム情報' },
+    forgotPassword:       { zh: '忘记密码',          en: 'Forgot Password',      ja: 'パスワード忘れ' },
+    logout:               { zh: '退出登录',          en: 'Logout',               ja: 'ログアウト' },
+    edit:                 { zh: '编辑',              en: 'Edit',                 ja: '編集' },
+    save:                 { zh: '保存',              en: 'Save',                 ja: '保存' },
+    cancel:               { zh: '取消',              en: 'Cancel',               ja: 'キャンセル' },
+    online:               { zh: '在线',              en: 'Online',               ja: 'オンライン' },
+    offline:              { zh: '离线',              en: 'Offline',              ja: 'オフライン' },
+    systemLanguage:       { zh: '系统语言',          en: 'System Language',      ja: 'システム言語' },
+    networkRestored:      { zh: '网络已恢复',         en: 'Network restored',     ja: 'ネットワークが復旧しました' },
+    networkOffline:       { zh: '网络已断开',         en: 'Network offline',      ja: 'ネットワークが切断されました' }
+};
+
+FA.t = function(key) {
+    var lang = FA.currentLang || 'zh';
+    var entry = FA.i18n[key];
+    if (!entry) return key;
+    return entry[lang] || entry['zh'] || key;
+};
+
+FA.setLanguage = function(lang) {
+    FA.currentLang = lang;
+    localStorage.setItem('fi_language', lang);
+    // Reload to apply changes
+    location.reload();
+};
+
+/* =====================
+   网络状态监控
+   ===================== */
+FA.networkStatus = navigator.onLine ? 'online' : 'offline';
+FA.initNetworkMonitor = function() {
+    window.addEventListener('online', function() {
+        FA.networkStatus = 'online';
+        if (FA.showToast) FA.showToast(FA.t('networkRestored'), 'success');
+        if (FA.onNetworkRestore) FA.onNetworkRestore();
+    });
+    window.addEventListener('offline', function() {
+        FA.networkStatus = 'offline';
+        if (FA.showToast) FA.showToast(FA.t('networkOffline'), 'error');
+        if (FA.onNetworkOffline) FA.onNetworkOffline();
+    });
+};
+
+/* =====================
+   时间格式化辅助函数
+   ===================== */
+FA.formatExactTime = function(d) {
+    d = d instanceof Date ? d : new Date(d);
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+};
+
+FA.formatDateCN = function(d) {
+    d = d instanceof Date ? d : new Date(d);
+    return d.getFullYear() + '.' + (d.getMonth()+1) + '.' + d.getDate();
+};
+
+FA.formatTimeCN = function(d) {
+    d = d instanceof Date ? d : new Date(d);
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+};
+
+/* =====================
+   Windows 系统通知
+   ===================== */
+FA.sendWindowsNotification = function(title, body) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+        new Notification(title, { body: body, icon: '/favicon.ico' });
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+                new Notification(title, { body: body, icon: '/favicon.ico' });
+            }
+        });
+    }
+};
 
 /* =====================
    工具函数
@@ -172,7 +273,14 @@ FA.showToast = function(msg, type) {
     type = type || 'info';
     var toast = document.getElementById('toast');
     if (!toast) return;
-    toast.textContent = msg;
+    // Build content with icon
+    var iconHTML = '';
+    if (type === 'success') {
+        iconHTML = '<span class="toast-icon toast-icon-success"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
+    } else if (type === 'error') {
+        iconHTML = '<span class="toast-icon toast-icon-error"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span>';
+    }
+    toast.innerHTML = '<span class="toast-text">' + msg + '</span>' + iconHTML;
     toast.className = 'toast ' + type;
     requestAnimationFrame(function() { toast.classList.add('show'); });
     if (FA._toastTimer) clearTimeout(FA._toastTimer);
