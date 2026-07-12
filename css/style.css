@@ -39,6 +39,9 @@ body.main-active {
 }
 body.main-active::before { display: none !important; }
 
+/* 登录状态隐藏 .main-bg, 进入主界面后才显示 */
+body:not(.main-active) .main-bg { display: none; }
+
 .login-card {
     position: relative;
     z-index: 10;
@@ -1399,10 +1402,10 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
     border: 1px solid rgba(0,0,0,0.06);
     border-radius: 14px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-    z-index: 300;
-    display: none;
+    z-index: 3000;
     padding: 16px;
     min-width: 240px;
+    animation: popupSlide 0.2s ease;
 }
 .contact-popup.open { display: block; animation: popupSlide 0.2s ease; }
 .contact-popup h4 { font-size: 16px; margin-bottom: 8px; }
@@ -1417,4 +1420,213 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
     .login-card { margin: 20px auto; width: 90%; }
     .profile-info-grid { grid-template-columns: 1fr; }
     .member-edit-grid { grid-template-columns: 1fr; }
+}
+
+/* ======================================================================
+   新增样式: Toast重设计 / 个人信息优化 / 网络状态 / 账号安全 / 语言设置
+   ====================================================================== */
+
+/* Toast 重设计 — 白色背景 + 动画勾/叉 */
+.toast {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    color: #1a1a1a;
+    padding: 14px 24px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    border: 1px solid rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 400px;
+}
+.toast .toast-text { flex: 1; }
+.toast .toast-icon {
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.toast .toast-icon svg { width: 22px; height: 22px; }
+.toast .toast-icon-success svg { fill: #28a745; }
+.toast .toast-icon-error svg { fill: #e74c3c; }
+.toast .toast-icon-success { animation: toastCheckAnim 0.4s ease; }
+.toast .toast-icon-error { animation: toastXAnim 0.4s ease; }
+@keyframes toastCheckAnim {
+    0% { transform: scale(0) rotate(-45deg); }
+    50% { transform: scale(1.3) rotate(0deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes toastXAnim {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+.toast.success { border-left: 3px solid #28a745; }
+.toast.error { border-left: 3px solid #e74c3c; }
+.toast.info { border-left: 3px solid #007AFF; }
+.toast.info .toast-icon { display: none; }
+
+/* 个人信息优化 — 白色边框框 */
+.profile-section-box {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+.profile-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.profile-info-item label {
+    display: block;
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+.profile-info-item .profile-info-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+/* 编辑个人信息按钮 */
+.btn-edit-profile {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 122, 255, 0.2);
+    background: rgba(0, 122, 255, 0.05);
+    color: #007AFF;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.btn-edit-profile:hover {
+    background: rgba(0, 122, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+/* 权限网格 — 多列布局 */
+.permissions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.permission-grid-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(245, 247, 250, 0.6);
+    border-radius: 8px;
+    font-size: 13px;
+}
+.permission-grid-item .permission-icon {
+    width: 18px;
+    text-align: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.permission-grid-item .permission-text {
+    font-size: 13px;
+    color: #555;
+    font-weight: 500;
+}
+
+/* 网络状态指示器 */
+.network-status {
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+}
+.network-status .network-icon {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.network-status.online .network-icon {
+    background: #28a745;
+    box-shadow: 0 0 6px rgba(40, 167, 69, 0.5);
+    animation: networkPulse 2s ease-in-out infinite;
+}
+.network-status.offline .network-icon {
+    background: #e74c3c;
+    box-shadow: 0 0 6px rgba(231, 76, 60, 0.5);
+}
+@keyframes networkPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.network-status.online::after {
+    content: '✓';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 9px;
+    color: #28a745;
+    font-weight: 700;
+}
+.network-status.offline::after {
+    content: '✕';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 9px;
+    color: #e74c3c;
+    font-weight: 700;
+}
+
+/* 用户资料包装器 */
+.user-profile-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 20px;
+    padding: 0 8px;
+}
+.user-profile-wrapper .user-profile {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+/* 忘记密码链接 */
+.forgot-password-link {
+    position: absolute;
+    right: 38px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+    z-index: 5;
+}
+.forgot-password-link:hover {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* 设置标签页 — 账号与安全 */
+.settings-tab[data-tab="security"] { /* uses existing styles */ }
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .permissions-grid { grid-template-columns: repeat(2, 1fr); }
+    .btn-edit-profile { position: static !important; margin-top: 12px; }
+}
+@media (max-width: 480px) {
+    .permissions-grid { grid-template-columns: 1fr; }
 }
