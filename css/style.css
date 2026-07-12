@@ -11,7 +11,7 @@
    ====================================================================== */
 body {
     height: 100vh;
-    background: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80') center/cover no-repeat;
+    background: linear-gradient(135deg, #0c1e3e 0%, #1a3a5c 25%, #1e3c5a 50%, #0d2137 75%, #0a1929 100%);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -872,6 +872,10 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
 .calendar-day .day-holiday { font-size: 9px; color: #ff453a; line-height: 1; margin-top: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-day.empty { border: none; cursor: default; }
 .calendar-day.empty:hover { background: transparent; }
+.calendar-day.weekend { background: rgba(255, 100, 100, 0.03); }
+.calendar-day.weekend .day-num { color: #e74c3c; }
+.calendar-day .day-num { font-size: 14px; font-weight: 600; }
+.calendar-day.today .day-num { color: #007AFF; }
 .calendar-day-list { display: flex; flex-direction: column; gap: 8px; }
 .calendar-day-event {
     display: flex;
