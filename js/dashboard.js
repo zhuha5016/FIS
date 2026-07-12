@@ -52,6 +52,8 @@ FA.renderHomeSummary = function() {
                    '<div style="margin-bottom:8px;color:#888">' + n.content + '</div>';
         }).join('') || '<p style="color:#999">暂无通知</p>';
     }
+
+    FA.updateNetworkStatus();
 };
 
 /* =====================
@@ -489,4 +491,57 @@ FA.setupDashboardDrag = function() {
         dragOverCard = null;
         dragPosition = null;
     });
+};
+
+/* =====================
+   6. 网络状态指示器
+   ===================== */
+FA.updateNetworkStatus = function() {
+    var indicator = document.getElementById('networkStatus');
+    var icon = document.getElementById('networkIcon');
+    if (!indicator || !icon) return;
+
+    if (navigator.onLine) {
+        indicator.className = 'network-status online';
+        icon.innerHTML = '●';
+        indicator.title = '网络正常';
+    } else {
+        indicator.className = 'network-status offline';
+        icon.innerHTML = '●';
+        indicator.title = '网络异常';
+    }
+
+    /* Also check and update VAL service status in settings */
+    var valService = document.getElementById('valServiceStatus');
+    if (valService) {
+        if (navigator.onLine) {
+            valService.textContent = '在线';
+            valService.style.color = '#28a745';
+        } else {
+            valService.textContent = '离线';
+            valService.style.color = '#e74c3c';
+        }
+    }
+};
+
+FA.onNetworkRestore = function() {
+    FA.updateNetworkStatus();
+    /* Update VAL service status to online */
+    var valStatus = document.getElementById('valServiceStatus');
+    if (valStatus) {
+        valStatus.textContent = '在线';
+        valStatus.style.color = '#28a745';
+    }
+};
+
+FA.onNetworkOffline = function() {
+    FA.updateNetworkStatus();
+    /* Update VAL service status to offline */
+    var valStatus = document.getElementById('valServiceStatus');
+    if (valStatus) {
+        valStatus.textContent = '离线';
+        valStatus.style.color = '#e74c3c';
+    }
+    /* Add notification */
+    FA.Data.addNotification('error', '系统已离线', '请检查网络设置。VAL服务已同步为离线状态。');
 };
