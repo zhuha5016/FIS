@@ -5,6 +5,7 @@
    10分钟会话保持
    身份证本地校验算法
    实名认证 (姓名+身份证号验证)
+   VAL六框: 粘贴自动填充 / 无光标 / 边框加粗 / 长按删除清空
    ====================================================================== */
 
 window.FA = window.FA || {};
@@ -38,7 +39,7 @@ FA.Verify = {
         var session = FA.Data.loadData(FA.DB_KEYS.verifySession, null);
         if (!session) return false;
         var now = Date.now();
-        if (now - session.time > 10 * 60 * 1000) { /* 10分钟过期 */
+        if (now - session.time > 10 * 60 * 1000) {
             localStorage.removeItem(FA.DB_KEYS.verifySession);
             return false;
         }
@@ -61,8 +62,6 @@ FA.Verify = {
 
     /* 发起身份验证 */
     requireVerify: function(purpose, level, callback) {
-        /* level: 'normal' (3种方式) / 'bank' (密码+CVV) */
-        /* 先检查是否已有有效会话 */
         if (this.isVerified(level)) {
             callback(true);
             return;
@@ -72,16 +71,13 @@ FA.Verify = {
         var modalId = 'auth-verify-modal';
         var modal = document.getElementById(modalId);
         if (!modal) {
-            /* 动态创建验证弹窗 */
             modal = this.createVerifyModal();
             document.body.appendChild(modal);
         }
 
-        /* 设置标题 */
         document.getElementById('authVerifyTitle').textContent = purpose || '身份验证';
         document.getElementById('authVerifyPurpose').textContent = '为了保护您的敏感信息，请完成身份验证';
 
-        /* 银行卡级别只显示密码+CVV */
         var tabs = modal.querySelectorAll('.auth-verify-tab');
         var methodAreas = modal.querySelectorAll('.auth-verify-method-area');
         if (level === 'bank') {
@@ -94,11 +90,9 @@ FA.Verify = {
             tabs[0].click();
         }
 
-        /* 确认按钮 */
         var confirmBtn = document.getElementById('authVerifyConfirm');
         confirmBtn.onclick = function() { self.doVerify(level, callback); };
 
-        /* 记住选项 */
         var remember = document.getElementById('authVerifyRemember');
         remember.checked = false;
 
@@ -111,55 +105,49 @@ FA.Verify = {
             '<div class="modal-header"><h3 id="authVerifyTitle">身份验证</h3></div>' +
             '<p style="font-size:13px;color:#888;margin-bottom:14px" id="authVerifyPurpose"></p>' +
 
-            /* 验证方式选项卡 (非银行级别) */
             '<div class="auth-verify-methods" id="authVerifyTabs">' +
                 '<div class="auth-verify-tab active" data-method="phone">手机号+VAL</div>' +
                 '<div class="auth-verify-tab" data-method="idcard">身份证+VAL</div>' +
                 '<div class="auth-verify-tab" data-method="password">密码</div>' +
             '</div>' +
 
-            /* 手机号+VAL 方式 */
             '<div class="auth-verify-method-area" id="methodPhone">' +
                 '<div class="modal-field"><label>手机号</label><input id="verifyPhone" type="text" placeholder="请输入手机号"></div>' +
                 '<div class="modal-field"><label>VAL Code</label>' +
                     '<div class="val-input-row">' +
-                        '<input class="val-input-box" maxlength="1" data-vi="0">' +
-                        '<input class="val-input-box" maxlength="1" data-vi="1">' +
-                        '<input class="val-input-box" maxlength="1" data-vi="2">' +
-                        '<input class="val-input-box" maxlength="1" data-vi="3">' +
-                        '<input class="val-input-box" maxlength="1" data-vi="4">' +
-                        '<input class="val-input-box" maxlength="1" data-vi="5">' +
+                        '<input class="val-input-box" maxlength="1" data-vi="0" inputmode="numeric">' +
+                        '<input class="val-input-box" maxlength="1" data-vi="1" inputmode="numeric">' +
+                        '<input class="val-input-box" maxlength="1" data-vi="2" inputmode="numeric">' +
+                        '<input class="val-input-box" maxlength="1" data-vi="3" inputmode="numeric">' +
+                        '<input class="val-input-box" maxlength="1" data-vi="4" inputmode="numeric">' +
+                        '<input class="val-input-box" maxlength="1" data-vi="5" inputmode="numeric">' +
                     '</div>' +
                 '</div>' +
             '</div>' +
 
-            /* 身份证+VAL 方式 */
             '<div class="auth-verify-method-area" id="methodIdcard" style="display:none">' +
                 '<div class="modal-field"><label>身份证号</label><input id="verifyIdcard" type="text" placeholder="请输入身份证号"></div>' +
                 '<div class="modal-field"><label>VAL Code</label>' +
                     '<div class="val-input-row">' +
-                        '<input class="val-input-box idc-val" maxlength="1" data-vi="0">' +
-                        '<input class="val-input-box idc-val" maxlength="1" data-vi="1">' +
-                        '<input class="val-input-box idc-val" maxlength="1" data-vi="2">' +
-                        '<input class="val-input-box idc-val" maxlength="1" data-vi="3">' +
-                        '<input class="val-input-box idc-val" maxlength="1" data-vi="4">' +
-                        '<input class="val-input-box idc-val" maxlength="1" data-vi="5">' +
+                        '<input class="val-input-box idc-val" maxlength="1" data-vi="0" inputmode="numeric">' +
+                        '<input class="val-input-box idc-val" maxlength="1" data-vi="1" inputmode="numeric">' +
+                        '<input class="val-input-box idc-val" maxlength="1" data-vi="2" inputmode="numeric">' +
+                        '<input class="val-input-box idc-val" maxlength="1" data-vi="3" inputmode="numeric">' +
+                        '<input class="val-input-box idc-val" maxlength="1" data-vi="4" inputmode="numeric">' +
+                        '<input class="val-input-box idc-val" maxlength="1" data-vi="5" inputmode="numeric">' +
                     '</div>' +
                 '</div>' +
             '</div>' +
 
-            /* 密码 方式 */
             '<div class="auth-verify-method-area" id="methodPassword" style="display:none">' +
                 '<div class="modal-field"><label>登录密码</label><input id="verifyPassword" type="password" placeholder="请输入登录密码"></div>' +
             '</div>' +
 
-            /* 银行卡验证方式 (密码+CVV) */
             '<div id="authVerifyBankArea" style="display:none">' +
                 '<div class="modal-field"><label>登录密码</label><input id="verifyBankPass" type="password" placeholder="请输入登录密码"></div>' +
                 '<div class="modal-field"><label>CVV码</label><input id="verifyCVV" type="password" maxlength="4" placeholder="请输入CVV码"></div>' +
             '</div>' +
 
-            /* 记住选项 */
             '<div class="auth-verify-remember">' +
                 '<input type="checkbox" id="authVerifyRemember">' +
                 '<label for="authVerifyRemember">10分钟内凭此验证信息直接访问</label>' +
@@ -188,23 +176,142 @@ FA.Verify = {
             });
         });
 
-        /* VAL 输入框自动跳转 */
+        /* VAL 输入框: 粘贴自动填充 / 无光标 / 连贯删除 / 长按清空 */
         this.setupVALInputs(modal.querySelectorAll('#methodPhone .val-input-box'));
         this.setupVALInputs(modal.querySelectorAll('#methodIdcard .val-input-box'));
 
         return modal;
     },
 
+    /* VAL 六框输入: 增强版
+       - 粘贴6位数自动填入所有框
+       - 无光标 (caret-color: transparent, CSS 控制)
+       - 聚焦时边框加粗 (CSS 控制)
+       - 删除连贯: 当前框空则跳到前一个并清空
+       - 长按删除键: 从当前框往前依次清空所有框
+       - 不会出现删除后停顿在某个框的情况
+    */
     setupVALInputs: function(boxes) {
-        boxes.forEach(function(box, index) {
+        if (!boxes || boxes.length === 0) return;
+        var boxArr = Array.from(boxes);
+        var backspaceHoldTimer = null;
+        var backspaceClearInterval = null;
+
+        boxArr.forEach(function(box, index) {
+            /* 输入: 自动跳到下一个 */
             box.addEventListener('input', function(e) {
                 var val = e.target.value.replace(/\D/g, '');
+                if (val.length > 1) {
+                    /* 多位输入 (如粘贴): 分散到各框 */
+                    e.target.value = '';
+                    val.split('').forEach(function(digit, i) {
+                        if (i < boxArr.length) boxArr[i].value = digit;
+                    });
+                    var focusIdx = Math.min(val.length, boxArr.length - 1);
+                    boxArr[focusIdx].focus();
+                    return;
+                }
                 e.target.value = val;
-                if (val && index < boxes.length - 1) boxes[index + 1].focus();
+                if (val && index < boxArr.length - 1) {
+                    boxArr[index + 1].focus();
+                }
             });
+
+            /* 粘贴: 直接填入所有6个框 */
+            box.addEventListener('paste', function(e) {
+                e.preventDefault();
+                var text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+                if (text.length === 0) return;
+                text.split('').forEach(function(digit, i) {
+                    if (i < boxArr.length) boxArr[i].value = digit;
+                });
+                var focusIdx = Math.min(text.length, boxArr.length - 1);
+                if (text.length >= boxArr.length) {
+                    boxArr[boxArr.length - 1].focus();
+                } else {
+                    boxArr[focusIdx].focus();
+                }
+            });
+
+            /* 键盘按下: 处理 Backspace 和方向键 */
             box.addEventListener('keydown', function(e) {
-                if (e.key === 'Backspace' && !e.target.value && index > 0) {
-                    boxes[index - 1].focus();
+                if (e.key === 'Backspace') {
+                    if (e.target.value) {
+                        /* 当前框有值: 先清空当前框 (默认行为会清空)
+                           如果长按, 启动连续清空 */
+                        if (backspaceHoldTimer === null) {
+                            backspaceHoldTimer = setTimeout(function() {
+                                /* 长按超过 400ms: 开始从当前框往前依次清空 */
+                                backspaceClearInterval = setInterval(function() {
+                                    /* 找到当前有值的框清空 */
+                                    var focused = document.activeElement;
+                                    var fIdx = boxArr.indexOf(focused);
+                                    if (fIdx >= 0 && boxArr[fIdx].value) {
+                                        boxArr[fIdx].value = '';
+                                    } else if (fIdx > 0) {
+                                        /* 当前框空了, 跳到前一个 */
+                                        boxArr[fIdx - 1].focus();
+                                        boxArr[fIdx - 1].value = '';
+                                    } else {
+                                        /* 已经到第一个了, 停止 */
+                                        clearInterval(backspaceClearInterval);
+                                        backspaceClearInterval = null;
+                                    }
+                                }, 80);
+                            }, 400);
+                        }
+                    } else if (index > 0) {
+                        /* 当前框空: 跳到前一个并清空它, 阻止默认行为 */
+                        e.preventDefault();
+                        boxArr[index - 1].focus();
+                        boxArr[index - 1].value = '';
+                    }
+                }
+                /* 方向键导航 */
+                if (e.key === 'ArrowLeft' && index > 0) {
+                    e.preventDefault();
+                    boxArr[index - 1].focus();
+                }
+                if (e.key === 'ArrowRight' && index < boxArr.length - 1) {
+                    e.preventDefault();
+                    boxArr[index + 1].focus();
+                }
+                /* Enter 提交 */
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    var confirmBtn = document.getElementById('authVerifyConfirm');
+                    if (confirmBtn) confirmBtn.click();
+                }
+            });
+
+            /* 键盘抬起: 清除长按计时器 */
+            box.addEventListener('keyup', function(e) {
+                if (e.key === 'Backspace') {
+                    if (backspaceHoldTimer) {
+                        clearTimeout(backspaceHoldTimer);
+                        backspaceHoldTimer = null;
+                    }
+                    if (backspaceClearInterval) {
+                        clearInterval(backspaceClearInterval);
+                        backspaceClearInterval = null;
+                    }
+                }
+            });
+
+            /* 点击: 选中全部内容 */
+            box.addEventListener('focus', function(e) {
+                e.target.select();
+            });
+
+            /* 失焦时清除长按状态 */
+            box.addEventListener('blur', function() {
+                if (backspaceHoldTimer) {
+                    clearTimeout(backspaceHoldTimer);
+                    backspaceHoldTimer = null;
+                }
+                if (backspaceClearInterval) {
+                    clearInterval(backspaceClearInterval);
+                    backspaceClearInterval = null;
                 }
             });
         });
@@ -216,14 +323,12 @@ FA.Verify = {
         var remember = document.getElementById('authVerifyRemember').checked;
 
         if (level === 'bank') {
-            /* 银行卡验证: 密码 + CVV */
             var bankPass = document.getElementById('verifyBankPass').value;
             var cvv = document.getElementById('verifyCVV').value;
             if (bankPass === acc.password && cvv.length >= 3) {
                 success = true;
             }
         } else {
-            /* 普通验证: 3种方式 */
             var activeTab = document.querySelector('.auth-verify-tab.active');
             var method = activeTab ? activeTab.dataset.method : 'phone';
 
@@ -235,7 +340,6 @@ FA.Verify = {
                 if (phone === acc.phone.replace(/\*/g, '').replace(/\D/g, '').substring(0, 11) && valStr === expectedVal) {
                     success = true;
                 }
-                /* 宽松匹配: 手机后4位 */
                 if (!success && phone === acc.phone.substring(acc.phone.length - 4)) {
                     if (valStr === expectedVal) success = true;
                 }
@@ -277,10 +381,8 @@ FA.Verify = {
         }
 
         if (existingVerify) {
-            /* 已实名认证 - 显示绿色打勾和修改选项 */
             this.showVerifiedState(modal, existingVerify);
         } else {
-            /* 未认证 - 显示输入表单 */
             this.showVerifyForm(modal, memberUsername);
         }
 
@@ -317,7 +419,6 @@ FA.Verify = {
             if (!name) return FA.showToast('请输入姓名', 'error');
             if (!self.validateIDCard(idcard)) return FA.showToast('身份证号无效', 'error');
 
-            /* 验证成功动画 */
             self.showVerifySuccessAnimation(modal, { name: name, idcard: idcard }, memberUsername);
         };
     },
@@ -333,7 +434,6 @@ FA.Verify = {
                 '<p style="font-size:13px;color:#888">' + verifyData.name + ' 已通过实名认证</p>' +
             '</div>';
 
-        /* 保存实名认证状态 */
         var verifyStore = FA.Data.loadData(FA.DB_KEYS.userVerify, {});
         verifyStore[memberUsername || FA.currentUser.username] = {
             name: verifyData.name,
@@ -342,7 +442,6 @@ FA.Verify = {
         };
         FA.Data.saveData(FA.DB_KEYS.userVerify, verifyStore);
 
-        /* 更新成员的 verified 状态 */
         var member = FA.members.find(function(m) { return m.username === (memberUsername || FA.currentUser.username); });
         if (member) {
             member.verified = true;
@@ -352,8 +451,6 @@ FA.Verify = {
         }
 
         FA.showToast('实名认证成功！', 'success');
-
-        /* 3秒后关闭 */
         setTimeout(function() { FA.closeModal('realname-verify-modal'); }, 2000);
     },
 
@@ -371,7 +468,6 @@ FA.Verify = {
             '</div>';
 
         document.getElementById('modifyRealName').onclick = function() {
-            /* 修改实名信息需要先验证之前的信息 */
             self.showModifyRealNameForm(modal, verifyData);
         };
     },
@@ -396,7 +492,6 @@ FA.Verify = {
             var cvv = document.getElementById('oldRnCVV').value;
 
             if (name === oldVerify.name && idcard === oldVerify.idcard && cvv.length >= 3) {
-                /* 验证通过，显示新的输入表单 */
                 self.showVerifyForm(modal, oldVerify.username);
             } else {
                 FA.showToast('验证失败，请检查信息', 'error');
@@ -404,13 +499,11 @@ FA.Verify = {
         };
     },
 
-    /* 获取用户实名认证状态 */
     getVerifyStatus: function(username) {
         var store = FA.Data.loadData(FA.DB_KEYS.userVerify, {});
         return store[username] || null;
     },
 
-    /* 检查是否有权限查看敏感信息 */
     canViewSensitive: function(targetUsername) {
         if (FA.currentUser.role === 'superadmin') return true;
         if (FA.currentUser.username === targetUsername) return true;
