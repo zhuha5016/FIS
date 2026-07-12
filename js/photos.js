@@ -1,20 +1,19 @@
 /* ======================================================================
    photos.js - 家庭相册模块
-   功能：相册管理、照片上传、照片查看器
+   修复: 相册网格/照片网格切换显示
+   新增: 鼠标悬浮显示上传时间(左上角)
+   新增: 照片查看器右侧信息面板(文件名/格式/尺寸等)
    ====================================================================== */
 
 window.FA = window.FA || {};
 
 (function () {
 
-    /* =====================
-       内部状态
-       ===================== */
-    var currentAlbumFilter = 'albums';  // 'albums' = 相册网格, 'all' = 所有照片, albumId = 指定相册
-    var viewerPhotos = [];              // 查看器当前照片列表
-    var viewerIndex = 0;               // 查看器当前索引
-    var tempCoverUrl = '';             // 创建/编辑相册时的临时封面
-    var editingAlbumId = null;         // 当前编辑的相册ID (null=新建)
+    var currentAlbumFilter = 'albums';
+    var viewerPhotos = [];
+    var viewerIndex = 0;
+    var tempCoverUrl = '';
+    var editingAlbumId = null;
 
     /* =====================
        工具函数
@@ -63,7 +62,7 @@ window.FA = window.FA || {};
             .replace(/'/g, '&#039;');
     }
 
-    /* 压缩图片至 800px 最大边，输出 base64 */
+    /* 压缩图片至 800px 最大边，输出 base64 + 元数据 */
     function compressImage(file, callback) {
         var reader = new FileReader();
         reader.onload = function (e) {
@@ -84,11 +83,46 @@ window.FA = window.FA || {};
                 canvas.height = h;
                 var ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, w, h);
-                callback(canvas.toDataURL('image/jpeg', 0.85));
+                var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+                /* 估算文件大小 (base64 长度 * 3/4) */
+                var base64Data = dataUrl.split(',')[1] || '';
+                var fileSize = Math.round(base64Data.length * 3 / 4);
+
+                callback({
+                    url: dataUrl,
+                    originalWidth: img.width,
+                    originalHeight: img.height,
+                    compressedWidth: w,
+                    compressedHeight: h,
+                    fileSize: fileSize,
+                    fileType: file.type || 'image/jpeg',
+                    fileName: file.name
+                });
             };
             img.src = e.target.result;
         };
         reader.readAsDataURL(file);
+    }
+
+    function formatFileSize(bytes) {
+        if (!bytes || bytes <= 0) return '-';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function getFileFormat(type) {
+        if (!type) return '-';
+        var map = {
+            'image/jpeg': 'JPEG',
+            'image/png': 'PNG',
+            'image/gif': 'GIF',
+            'image/webp': 'WebP',
+            'image/svg+xml': 'SVG',
+            'image/bmp': 'BMP'
+        };
+        return map[type] || type.replace('image/', '').toUpperCase();
     }
 
     function savePhotos() {
@@ -100,23 +134,28 @@ window.FA = window.FA || {};
     }
 
     /* =====================
-       渲染
+       渲染 - 修复: 正确切换 albumView / photoView
        ===================== */
     FA.renderPhotos = function () {
         ensureDefaultAlbum();
-        var container = document.getElementById('photoGrid');
-        if (!container) return;
-
-        /* 清空旧的筛选栏 */
-        var filters = document.getElementById('albumFilters');
-        if (filters) filters.innerHTML = '';
+        var photoGrid = document.getElementById('photoGrid');
+        var albumView = document.getElementById('albumView');
+        var photoView = document.getElementById('photoView');
+        if (!photoGrid) return;
 
         if (currentAlbumFilter === 'albums') {
-            container.innerHTML = renderAlbumGrid();
-            container.className = '';
+            /* 相册网格视图: 显示 albumView, 隐藏 photoView */
+            if (photoView) photoView.style.display = 'none';
+            if (albumView) {
+                albumView.style.display = 'block';
+                albumView.innerHTML = renderAlbumGrid();
+            }
         } else {
-            container.innerHTML = renderPhotoGrid();
-            container.className = 'photo-grid';
+            /* 照片网格视图: 隐藏 albumView, 显示 photoView */
+            if (albumView) albumView.style.display = 'none';
+            if (photoView) photoView.style.display = 'block';
+            photoGrid.innerHTML = renderPhotoGrid();
+            photoGrid.className = 'photo-grid';
         }
     };
 
@@ -133,22 +172,18 @@ window.FA = window.FA || {};
         html += '</div>';
 
         /* 相册卡片网格 */
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;">';
+        html += '<div class="album-grid">';
 
         /* "所有照片" 卡片 */
         var allCount = (FA.photos || []).length;
         var allCover = '';
         if (FA.photos && FA.photos.length > 0) {
-            allCover = FA.photos[FA.photos.length - 1].url;
+            allCover = FA.photos[0].url;
         }
-        html += '<div onclick="FA.filterPhotos(\'all\')" style="position:relative;height:260px;border-radius:14px;overflow:hidden;cursor:pointer;background:' + (allCover ? 'url(\'' + allCover + '\') center/cover' : '#667eea') + ';">';
-        html += '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7),transparent 55%);"></div>';
-        if (!allCover) {
-            html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:40px;">📷</div>';
-        }
-        html += '<div style="position:absolute;bottom:0;left:0;right:0;padding:16px;color:#fff;">';
-        html += '<h3 style="margin:0;font-size:18px;">所有照片</h3>';
-        html += '<p style="margin:4px 0 0;font-size:13px;opacity:0.9;">共 ' + allCount + ' 张照片</p>';
+        html += '<div class="album-card" onclick="FA.filterPhotos(\'all\')" style="background:' + (allCover ? 'url(\'' + allCover + '\') center/cover' : 'linear-gradient(135deg, #667eea, #764ba2)') + ';">';
+        html += '<div class="album-card-overlay">';
+        html += '<h4>所有照片</h4>';
+        html += '<p>共 ' + allCount + ' 张照片</p>';
         html += '</div></div>';
 
         /* 各相册卡片 */
@@ -157,18 +192,14 @@ window.FA = window.FA || {};
             var cover = album.cover;
             if (!cover) {
                 var photos = getPhotosInAlbum(album.id);
-                if (photos.length > 0) cover = photos[photos.length - 1].url;
+                if (photos.length > 0) cover = photos[0].url;
             }
 
-            html += '<div onclick="FA.filterPhotos(\'' + album.id + '\')" style="position:relative;height:260px;border-radius:14px;overflow:hidden;cursor:pointer;background:' + (cover ? 'url(\'' + cover + '\') center/cover' : '#999') + ';">';
-            html += '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7),transparent 55%);"></div>';
-            if (!cover) {
-                html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:40px;">📁</div>';
-            }
+            html += '<div class="album-card" onclick="FA.filterPhotos(\'' + album.id + '\')" style="background:' + (cover ? 'url(\'' + cover + '\') center/cover' : 'linear-gradient(135deg, #999, #777)') + ';">';
 
-            /* 编辑/删除按钮（默认相册不显示） */
+            /* 编辑/删除按钮 */
             if (album.id !== 'default') {
-                html += '<div style="position:absolute;top:10px;right:10px;display:flex;gap:6px;" onclick="event.stopPropagation()">';
+                html += '<div style="position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:5;" onclick="event.stopPropagation()">';
                 if (FA.checkPermission('createAlbum') || FA.checkPermission('editAlbum')) {
                     html += '<button onclick="FA.editAlbum(\'' + album.id + '\')" title="编辑相册" style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.5);color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">✎</button>';
                 }
@@ -178,12 +209,12 @@ window.FA = window.FA || {};
                 html += '</div>';
             }
 
-            html += '<div style="position:absolute;bottom:0;left:0;right:0;padding:16px;color:#fff;">';
-            html += '<h3 style="margin:0;font-size:18px;">' + escapeHtml(album.name) + '</h3>';
+            html += '<div class="album-card-overlay">';
+            html += '<h4>' + escapeHtml(album.name) + '</h4>';
             if (album.description) {
-                html += '<p style="margin:4px 0 0;font-size:13px;opacity:0.9;">' + escapeHtml(album.description) + '</p>';
+                html += '<p>' + escapeHtml(album.description) + '</p>';
             }
-            html += '<p style="margin:2px 0 0;font-size:12px;opacity:0.7;">' + count + ' 张照片</p>';
+            html += '<p>' + count + ' 张照片</p>';
             html += '</div></div>';
         });
 
@@ -220,14 +251,20 @@ window.FA = window.FA || {};
 
         /* 照片网格 */
         if (photos.length === 0) {
-            html += '<div class="photo-empty"><div class="empty-icon">📷</div><p>暂无照片</p><p class="empty-hint">点击"上传照片"添加</p></div>';
+            html += '<div class="empty-state"><div class="empty-icon">📷</div><p>暂无照片</p><p class="empty-hint">点击"上传照片"添加</p></div>';
             return html;
         }
 
         html += '<div class="photo-grid">';
         photos.forEach(function (photo, idx) {
+            /* 照片项 - 悬浮显示上传时间在左上角 */
             html += '<div class="photo-item" onclick="FA.openPhotoViewer(' + idx + ')">';
-            html += '<img src="' + photo.url + '" alt="' + escapeHtml(photo.title) + '">';
+            html += '<img src="' + photo.url + '" alt="' + escapeHtml(photo.title || '家庭照片') + '">';
+
+            /* 左上角: 上传时间 (悬浮显示) */
+            html += '<div class="photo-upload-time">' + escapeHtml(photo.uploadDate || '-') + '</div>';
+
+            /* 底部: 标题和删除按钮 (悬浮显示) */
             html += '<div class="photo-overlay">';
             html += '<span>' + escapeHtml(photo.title || '家庭照片') + '</span>';
             if (FA.checkPermission('deletePhoto')) {
@@ -363,12 +400,10 @@ window.FA = window.FA || {};
         if (albumId === 'default') return FA.showToast('默认相册不能删除', 'error');
         if (!confirm('删除相册后，相册内的照片将移至默认相册。确定删除？')) return;
 
-        /* 将照片移至默认相册 */
         (FA.photos || []).forEach(function (p) {
             if (p.albumId === albumId) p.albumId = 'default';
         });
 
-        /* 删除相册 */
         FA.albums = FA.albums.filter(function (a) { return a.id !== albumId; });
 
         savePhotos();
@@ -382,7 +417,6 @@ window.FA = window.FA || {};
         FA.showToast('相册已删除，照片已移至默认相册', 'info');
     };
 
-    /* 选择相册封面 */
     FA.selectAlbumCover = function (albumId, fromExisting) {
         if (fromExisting) {
             showCoverPicker();
@@ -402,8 +436,8 @@ window.FA = window.FA || {};
             input.addEventListener('change', function (e) {
                 var file = e.target.files[0];
                 if (!file) return;
-                compressImage(file, function (dataUrl) {
-                    tempCoverUrl = dataUrl;
+                compressImage(file, function (result) {
+                    tempCoverUrl = result.url;
                     updateCoverPreview();
                 });
                 e.target.value = '';
@@ -464,7 +498,7 @@ window.FA = window.FA || {};
     };
 
     /* =====================
-       照片上传
+       照片上传 - 保存更多元数据
        ===================== */
     FA.showUploadDialog = function () {
         if (!FA.checkPermission('addPhoto')) return FA.showToast('权限不足', 'error');
@@ -473,7 +507,6 @@ window.FA = window.FA || {};
         var old = document.getElementById(modalId);
         if (old) old.remove();
 
-        /* 默认选中当前查看的相册 */
         var defaultAlbum = 'default';
         if (currentAlbumFilter !== 'albums' && currentAlbumFilter !== 'all') {
             defaultAlbum = currentAlbumFilter;
@@ -510,7 +543,6 @@ window.FA = window.FA || {};
         var files = event.target.files;
         if (!files || files.length === 0) return;
 
-        /* 从下拉框获取目标相册 */
         var albumSelect = document.getElementById('uploadAlbumSelect');
         var albumId = albumSelect ? albumSelect.value : 'default';
 
@@ -519,13 +551,21 @@ window.FA = window.FA || {};
 
         for (var i = 0; i < files.length; i++) {
             (function (file) {
-                compressImage(file, function (dataUrl) {
+                compressImage(file, function (result) {
                     var photo = {
                         id: genId(),
-                        url: dataUrl,
-                        title: file.name.replace(/\.[^.]+$/, '') || '家庭照片',
+                        url: result.url,
+                        title: (result.fileName || file.name || '家庭照片').replace(/\.[^.]+$/, ''),
                         albumId: albumId,
-                        uploadDate: FA.getTodayStr()
+                        uploadDate: FA.getTodayStr(),
+                        uploadTime: new Date().toISOString(),
+                        originalWidth: result.originalWidth,
+                        originalHeight: result.originalHeight,
+                        compressedWidth: result.compressedWidth,
+                        compressedHeight: result.compressedHeight,
+                        fileSize: result.fileSize,
+                        fileType: result.fileType,
+                        fileName: result.fileName || file.name || '-'
                     };
                     if (!FA.photos) FA.photos = [];
                     FA.photos.unshift(photo);
@@ -561,10 +601,9 @@ window.FA = window.FA || {};
     };
 
     /* =====================
-       照片查看器 (全屏)
+       照片查看器 (全屏 + 右侧信息面板)
        ===================== */
     FA.openPhotoViewer = function (index) {
-        /* 根据当前视图获取照片列表 */
         if (currentAlbumFilter === 'all') {
             viewerPhotos = FA.photos || [];
         } else if (currentAlbumFilter === 'albums') {
@@ -591,28 +630,31 @@ window.FA = window.FA || {};
     function createPhotoViewer() {
         var viewer = document.createElement('div');
         viewer.id = 'photoViewer';
-        viewer.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:9999;display:none;align-items:center;justify-content:center;';
+        viewer.className = 'photo-viewer';
 
         viewer.innerHTML =
             /* 关闭按钮 */
-            '<button onclick="FA.closePhotoViewer()" title="关闭" style="position:absolute;top:20px;right:24px;width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:24px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;transition:background 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'">&times;</button>' +
+            '<button class="photo-viewer-close" onclick="FA.closePhotoViewer()">&times;</button>' +
             /* 下载按钮 */
-            '<button onclick="FA.downloadPhoto()" title="下载" style="position:absolute;top:20px;left:24px;padding:8px 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:14px;cursor:pointer;z-index:2;display:flex;align-items:center;gap:6px;transition:background 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'">⬇ 下载</button>' +
-            /* 上一张按钮 */
-            '<button onclick="FA.prevPhoto()" title="上一张" style="position:absolute;left:24px;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:28px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;transition:background 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'">&#8249;</button>' +
-            /* 下一张按钮 */
-            '<button onclick="FA.nextPhoto()" title="下一张" style="position:absolute;right:24px;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:28px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;transition:background 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'">&#8250;</button>' +
-            /* 照片 */
-            '<img id="photoViewerImg" style="max-width:90vw;max-height:85vh;object-fit:contain;user-select:none;" src="">' +
-            /* 底部信息 */
-            '<div id="photoViewerInfo" style="position:absolute;bottom:24px;left:0;right:0;text-align:center;color:#fff;pointer-events:none;"></div>';
+            '<button class="photo-viewer-download" onclick="FA.downloadPhoto()">⬇ 下载</button>' +
+            /* 上一张 */
+            '<button class="photo-viewer-nav prev" onclick="FA.prevPhoto()">&#8249;</button>' +
+            /* 下一张 */
+            '<button class="photo-viewer-nav next" onclick="FA.nextPhoto()">&#8250;</button>' +
+            /* 内容区: 左侧图片 + 右侧信息面板 */
+            '<div class="photo-viewer-layout">' +
+                '<div class="photo-viewer-image-area">' +
+                    '<img id="photoViewerImg" src="">' +
+                '</div>' +
+                '<div class="photo-viewer-info-panel" id="photoViewerInfoPanel">' +
+                    '<h3 id="photoViewerTitle"></h3>' +
+                    '<div id="photoViewerDetails"></div>' +
+                '</div>' +
+            '</div>';
 
         /* 点击空白区域关闭 */
         viewer.addEventListener('click', function (e) {
-            if (e.target === viewer || e.target.id === 'photoViewerImg') {
-                /* 只有点击 viewer 本身或图片以外区域才关闭 */
-                if (e.target === viewer) FA.closePhotoViewer();
-            }
+            if (e.target === viewer) FA.closePhotoViewer();
         });
 
         return viewer;
@@ -623,13 +665,63 @@ window.FA = window.FA || {};
         if (!photo) return;
 
         var img = document.getElementById('photoViewerImg');
-        var info = document.getElementById('photoViewerInfo');
+        var titleEl = document.getElementById('photoViewerTitle');
+        var detailsEl = document.getElementById('photoViewerDetails');
 
         if (img) img.src = photo.url;
-        if (info) {
-            info.innerHTML =
-                '<div style="font-size:16px;font-weight:500;">' + escapeHtml(photo.title || '家庭照片') + '</div>' +
-                '<div style="font-size:13px;opacity:0.7;margin-top:4px;">' + escapeHtml(photo.uploadDate || '') + ' · ' + (viewerIndex + 1) + ' / ' + viewerPhotos.length + '</div>';
+        if (titleEl) titleEl.textContent = photo.title || '家庭照片';
+
+        /* 构建详细信息面板 */
+        var albumName = '-';
+        if (photo.albumId) {
+            var album = getAlbum(photo.albumId);
+            if (album) albumName = album.name;
+        }
+
+        var uploadTimeStr = '-';
+        if (photo.uploadTime) {
+            try {
+                uploadTimeStr = new Date(photo.uploadTime).toLocaleString('zh-CN');
+            } catch(e) {
+                uploadTimeStr = photo.uploadTime;
+            }
+        } else if (photo.uploadDate) {
+            uploadTimeStr = photo.uploadDate;
+        }
+
+        var format = getFileFormat(photo.fileType);
+        var origSize = (photo.originalWidth && photo.originalHeight) ?
+            (photo.originalWidth + ' × ' + photo.originalHeight) : '-';
+        var compSize = (photo.compressedWidth && photo.compressedHeight) ?
+            (photo.compressedWidth + ' × ' + photo.compressedHeight) : '-';
+        var fileSize = formatFileSize(photo.fileSize);
+        var fileName = photo.fileName || (photo.title || '家庭照片') + '.jpg';
+
+        if (detailsEl) {
+            var rows = [
+                { label: '文件名', value: escapeHtml(fileName) },
+                { label: '格式', value: format },
+                { label: '原始尺寸', value: origSize },
+                { label: '压缩尺寸', value: compSize },
+                { label: '文件大小', value: fileSize },
+                { label: '所属相册', value: escapeHtml(albumName) },
+                { label: '上传日期', value: escapeHtml(photo.uploadDate || '-') },
+                { label: '上传时间', value: escapeHtml(uploadTimeStr) }
+            ];
+
+            var html = '<div class="photo-info-rows">';
+            rows.forEach(function(row) {
+                html += '<div class="photo-info-row">' +
+                    '<span class="photo-info-label">' + row.label + '</span>' +
+                    '<span class="photo-info-value">' + row.value + '</span>' +
+                '</div>';
+            });
+            html += '</div>';
+
+            /* 底部: 照片索引 */
+            html += '<div class="photo-info-index">' + (viewerIndex + 1) + ' / ' + viewerPhotos.length + '</div>';
+
+            detailsEl.innerHTML = html;
         }
     }
 
@@ -668,7 +760,6 @@ window.FA = window.FA || {};
         if (viewerIndex < 0 || viewerIndex >= viewerPhotos.length) return;
         var photo = viewerPhotos[viewerIndex];
 
-        /* base64 转 Blob */
         var arr = photo.url.split(',');
         var mime = arr[0].match(/:(.*?);/)[1];
         var bstr = atob(arr[1]);
@@ -682,7 +773,12 @@ window.FA = window.FA || {};
 
         var a = document.createElement('a');
         a.href = url;
-        a.download = (photo.title || 'photo') + '.jpg';
+        var ext = '.jpg';
+        if (photo.fileType) {
+            var extMap = { 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'image/jpeg': '.jpg' };
+            ext = extMap[photo.fileType] || '.jpg';
+        }
+        a.download = (photo.title || 'photo') + ext;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
