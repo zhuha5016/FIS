@@ -32,6 +32,7 @@ FA.Auth = {
         this.setupTimezone();
         this.setupLoginButton();
         this.setupUserPopup();
+        this.setupForgotPassword();
     },
 
     /* 小眼睛: 按下显示, 松开隐藏 */
@@ -133,9 +134,31 @@ FA.Auth = {
 
             var u = self.userInput.value.trim();
             var p = self.passInput.value;
-            if (!FA.accounts[u] || FA.accounts[u].password !== p) {
+
+            // Try to find account by username OR phone number
+            var acc = FA.accounts[u];
+            var loginUsername = u;
+
+            if (!acc) {
+                // Try matching by phone number
+                var foundKey = Object.keys(FA.accounts).find(function(key) {
+                    var a = FA.accounts[key];
+                    // Match full phone or last 4 digits
+                    return a.phone === u || a.phone.replace(/\D/g, '') === u.replace(/\D/g, '') ||
+                           a.phone.substring(a.phone.length - 4) === u;
+                });
+                if (foundKey) {
+                    acc = FA.accounts[foundKey];
+                    loginUsername = foundKey;
+                }
+            }
+
+            if (!acc || acc.password !== p) {
                 self.passInput.value = '';
                 self.clearVAL();
+                if (FA.Data.recordLoginLog) {
+                    FA.Data.recordLoginLog(u || '未知', 'failed', '账号或密码错误');
+                }
                 self.triggerError('认证错误');
                 return;
             }
@@ -145,11 +168,14 @@ FA.Auth = {
                 var inputVal = self.getVALInput();
                 if (inputVal.length !== 6 || inputVal !== expectedVal) {
                     self.clearVAL();
+                    if (FA.Data.recordLoginLog) {
+                        FA.Data.recordLoginLog(loginUsername || u, 'failed', '动态验证码错误');
+                    }
                     self.triggerError('动态验证码错误');
                     return;
                 }
                 self.setButtonState('success', '认证成功 ✔️');
-                setTimeout(function() { self.enterMainSystem(u); }, 1000);
+                setTimeout(function() { self.enterMainSystem(loginUsername); }, 1000);
             } catch (e) {
                 self.triggerError('VAL 服务异常');
             }
@@ -183,6 +209,146 @@ FA.Auth = {
         }
     },
 
+    /* 忘记密码 */
+    setupForgotPassword: function() {
+        var link = document.getElementById('forgotPasswordLink');
+        if (!link) return;
+        var self = this;
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            self.showForgotPasswordModal();
+        });
+    },
+
+    showForgotPasswordModal: function() {
+        var modalId = 'forgot-password-modal';
+        var existing = document.getElementById(modalId);
+        if (existing) existing.remove();
+
+        var modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = modalId;
+        modal.style.zIndex = '3000';
+        modal.innerHTML =
+            '<div class="modal-content" style="max-width:400px">' +
+                '<button class="modal-close" onclick="FA.closeModal(\'' + modalId + '\')">&times;</button>' +
+                '<div class="modal-header"><h3>找回密码</h3></div>' +
+                '<div id="forgotStep1">' +
+                    '<p style="font-size:13px;color:#888;margin-bottom:14px">请输入您的用户名或手机号,我们将帮您找回密码</p>' +
+                    '<div class="modal-field"><label>用户名或手机号</label><input id="forgotUserInput" placeholder="请输入用户名或手机号"></div>' +
+                    '<div class="modal-actions"><button class="btn-primary" id="forgotNextBtn">下一步</button></div>' +
+                '</div>' +
+                '<div id="forgotStep2" style="display:none">' +
+                    '<p style="font-size:13px;color:#888;margin-bottom:14px">请完成身份验证以重置密码</p>' +
+                    '<div id="forgotVerifyHint" style="padding:14px;background:rgba(0,122,255,0.06);border-radius:10px;font-size:13px;color:#666;margin-bottom:14px">' +
+                        '已找到用户: <strong id="forgotFoundUser"></strong><br>' +
+                        '请点击下方按钮完成身份验证' +
+                    '</div>' +
+                    '<div class="modal-actions">' +
+                        '<button class="btn-secondary" onclick="FA.Auth._goForgotStep(1)">返回</button>' +
+                        '<button class="btn-primary" id="forgotVerifyBtn">开始身份验证</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div id="forgotStep3" style="display:none">' +
+                    '<p style="font-size:13px;color:#888;margin-bottom:14px">验证通过,请设置新密码</p>' +
+                    '<div class="modal-field"><label>新密码</label><input id="forgotNewPass" type="password" placeholder="请输入新密码"></div>' +
+                    '<div class="modal-field"><label>确认密码</label><input id="forgotConfirmPass" type="password" placeholder="请再次输入新密码"></div>' +
+                    '<div class="modal-actions"><button class="btn-secondary" onclick="FA.closeModal(\'' + modalId + '\')">取消</button><button class="btn-primary" id="forgotResetBtn">重置密码</button></div>' +
+                '</div>' +
+            '</div>';
+
+        document.body.appendChild(modal);
+
+        var self = this;
+
+        // Step 1: Find user
+        document.getElementById('forgotNextBtn').onclick = function() {
+            var input = document.getElementById('forgotUserInput').value.trim();
+            if (!input) return FA.showToast('请输入用户名或手机号', 'error');
+
+            // Find account
+            var username = null;
+            if (FA.accounts[input]) {
+                username = input;
+            } else {
+                var foundKey = Object.keys(FA.accounts).find(function(key) {
+                    var a = FA.accounts[key];
+                    return a.phone === input || a.phone.replace(/\D/g, '') === input.replace(/\D/g, '') ||
+                           a.phone.substring(a.phone.length - 4) === input;
+                });
+                if (foundKey) username = foundKey;
+            }
+
+            if (!username) {
+                FA.showToast('未找到对应用户', 'error');
+                return;
+            }
+
+            // Store the username for later
+            self._forgotUsername = username;
+
+            // 显示步骤2, 让用户点击"开始身份验证"按钮
+            var foundUserEl = document.getElementById('forgotFoundUser');
+            if (foundUserEl) foundUserEl.textContent = (FA.accounts[username].nameCn || username) + ' (' + username + ')';
+            self._goForgotStep(2);
+        };
+
+        // Step 2: 开始身份验证
+        document.getElementById('forgotVerifyBtn').onclick = function() {
+            /* 保持 forgot modal 打开, verify modal 直接显示在 body 上 (z-index 更高) */
+            FA.Verify.requireVerify('找回密码身份验证', 'normal', function(success) {
+                if (success) {
+                    /* 验证通过: 关闭 verify, 跳到 step3 */
+                    self._goForgotStep(3);
+                }
+                /* 验证失败: 保持在 step2, 用户可重试 */
+            });
+        };
+
+        // Step 3: Reset password
+        document.getElementById('forgotResetBtn').onclick = function() {
+            var newPass = document.getElementById('forgotNewPass').value;
+            var confirmPass = document.getElementById('forgotConfirmPass').value;
+
+            if (!newPass) return FA.showToast('请输入新密码', 'error');
+            if (newPass !== confirmPass) return FA.showToast('两次密码不一致', 'error');
+            if (newPass.length < 6) return FA.showToast('密码长度至少6位', 'error');
+
+            // Update password
+            var resetUsername = self._forgotUsername;
+            FA.accounts[resetUsername].password = newPass;
+
+            /* 记录操作日志 (无 currentUser 上下文, 用 _forgotUsername) */
+            if (FA.Data.recordLoginLog) {
+                FA.Data.recordLoginLog(resetUsername, 'password_reset', '用户通过身份验证重置密码');
+            }
+            if (FA.Data.opLogs) {
+                FA.Data.opLogs.unshift({
+                    id: 'op_' + Date.now(),
+                    username: resetUsername,
+                    action: 'password_reset',
+                    detail: '通过身份验证重置密码',
+                    time: new Date().toISOString()
+                });
+                FA.Data.saveData(FA.DB_KEYS.opLogs, FA.Data.opLogs);
+            }
+
+            FA.showToast('密码重置成功，请重新登录', 'success');
+            setTimeout(function() {
+                FA.closeModal(modalId);
+            }, 1500);
+        };
+
+        FA.showModal(modalId);
+    },
+
+    /* 切换忘记密码步骤 */
+    _goForgotStep: function(step) {
+        document.getElementById('forgotStep1').style.display = step === 1 ? 'block' : 'none';
+        document.getElementById('forgotStep2').style.display = step === 2 ? 'block' : 'none';
+        document.getElementById('forgotStep3').style.display = step === 3 ? 'block' : 'none';
+    },
+
     /* 进入主系统 */
     enterMainSystem: function(username) {
         var acc = FA.accounts[username];
@@ -209,6 +375,15 @@ FA.Auth = {
         FA.renderPermissions();
         FA.renderAll();
         FA.showToast('欢迎回来，' + acc.nameCn + '！', 'success');
+
+        /* 记录登录日志 */
+        if (FA.Data.recordLoginLog) {
+            FA.Data.recordLoginLog(username, 'login', '用户登录成功');
+        }
+        /* 记录操作日志 */
+        if (FA.Data.recordOpLog) {
+            FA.Data.recordOpLog('login', '用户登录系统');
+        }
     },
 
     /* 更新用户 UI */
@@ -298,6 +473,13 @@ FA.Auth = {
     },
 
     switchUser: function(username) {
+        /* 记录切换日志 */
+        if (FA.Data.recordLoginLog) {
+            FA.Data.recordLoginLog(FA.currentUser.username, 'switch', '切换至用户: ' + username);
+        }
+        if (FA.Data.recordOpLog) {
+            FA.Data.recordOpLog('switch_user', '切换用户: ' + username);
+        }
         localStorage.setItem('fi_session', username);
         localStorage.removeItem('fi_verify_session');
         location.reload();
@@ -306,6 +488,14 @@ FA.Auth = {
     /* 退出登录 */
     logout: function() {
         if (!confirm('确定要退出登录吗？')) return;
+        if (FA.currentUser) {
+            if (FA.Data.recordLoginLog) {
+                FA.Data.recordLoginLog(FA.currentUser.username, 'logout', '用户退出登录');
+            }
+            if (FA.Data.recordOpLog) {
+                FA.Data.recordOpLog('logout', '用户退出系统');
+            }
+        }
         localStorage.removeItem('fi_session');
         localStorage.removeItem('fi_login_time');
         localStorage.removeItem('fi_verify_session');
