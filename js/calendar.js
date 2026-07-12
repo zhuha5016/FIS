@@ -1,5 +1,7 @@
 /* ======================================================================
    calendar.js - 家庭日历、日程管理、节假日/节气
+   修复: calendarBody → calendarContent ID匹配
+   新增: 星期表头、日历表格美化
    ====================================================================== */
 
 window.FA = window.FA || {};
@@ -68,6 +70,7 @@ FA._fixedHolidays = [
     { month: 5,  day: 4,  name: '青年节' },
     { month: 6,  day: 1,  name: '儿童节' },
     { month: 7,  day: 1,  name: '建党节' },
+    { month: 7,  day: 1,  name: '香港回归纪念日' },
     { month: 8,  day: 1,  name: '建军节' },
     { month: 9,  day: 10, name: '教师节' },
     { month: 10, day: 1,  name: '国庆节' },
@@ -84,7 +87,6 @@ FA._fixedHolidays = [
    获取节假日/节气数据
    ===================== */
 FA.getHolidays = function(year, month) {
-    /* month: 1-12 */
     var result = {};
     var pad = function(n) { return String(n).padStart(2, '0'); };
     var key = function(y, m, d) { return y + '-' + pad(m) + '-' + pad(d); };
@@ -110,7 +112,6 @@ FA.getHolidays = function(year, month) {
         var springMonth = parseInt(springParts[0]);
         var springDay = parseInt(springParts[1]);
         if (springMonth === month) {
-            /* 春节假期: 除夕到初六 */
             for (var d = springDay; d <= springDay + 6; d++) {
                 var date = new Date(year, springMonth - 1, d);
                 var actualYear = date.getFullYear();
@@ -159,57 +160,18 @@ FA.getHolidays = function(year, month) {
 };
 
 /* =====================
-   日历UI初始化 (添加视图切换、点击事件)
+   日历UI初始化
    ===================== */
 FA._initCalendarUI = function() {
     if (FA._calendarUIInit) return;
 
-    /* 添加月/日视图切换标签 */
-    var header = document.querySelector('.calendar-header');
-    if (header && !header.querySelector('.calendar-view-tabs')) {
-        var tabs = document.createElement('div');
-        tabs.className = 'calendar-view-tabs';
-        tabs.innerHTML =
-            '<div class="calendar-view-tab active" onclick="FA.changeCalendarView(\'month\')">月</div>' +
-            '<div class="calendar-view-tab" onclick="FA.changeCalendarView(\'day\')">日</div>';
-        header.insertBefore(tabs, header.firstChild);
-    }
-
-    /* 月份标题可点击打开日期选择器 */
+    /* 视图切换标签 - 已在 HTML 中存在，只需同步状态 */
     var monthTitle = document.getElementById('calendarMonth');
     if (monthTitle) {
         monthTitle.style.cursor = 'pointer';
-        monthTitle.addEventListener('click', function() { FA.openDatePicker(); });
     }
 
-    /* 为日程弹窗添加类型选择 */
-    FA._ensureEventModalFields();
-
     FA._calendarUIInit = true;
-};
-
-/* 确保日程弹窗有类型字段 */
-FA._ensureEventModalFields = function() {
-    var modal = document.getElementById('add-event-modal');
-    if (!modal) return;
-    if (document.getElementById('eventType')) return;
-
-    var locationField = document.getElementById('eventLocation');
-    if (!locationField) return;
-    var fieldDiv = locationField.closest('.modal-field');
-    if (!fieldDiv) return;
-
-    var typeDiv = document.createElement('div');
-    typeDiv.className = 'modal-field';
-    typeDiv.innerHTML =
-        '<label>类型</label>' +
-        '<select id="eventType">' +
-            '<option value="custom">自定义</option>' +
-            '<option value="birthday">生日</option>' +
-            '<option value="holiday">节假日</option>' +
-            '<option value="solar-term">节气</option>' +
-        '</select>';
-    fieldDiv.parentNode.insertBefore(typeDiv, fieldDiv.nextSibling);
 };
 
 /* =====================
@@ -233,7 +195,8 @@ FA.renderCalendar = function() {
         if (tabs.length > 1) tabs[1].classList.toggle('active', FA._calView === 'day');
     }
 
-    var body = document.getElementById('calendarBody');
+    /* 修复: 使用 calendarContent (匹配 index.html 中的 id) */
+    var body = document.getElementById('calendarContent');
     if (!body) return;
 
     if (FA._calView === 'day') {
@@ -245,7 +208,9 @@ FA.renderCalendar = function() {
     FA.Data.saveData(FA.DB_KEYS.events, FA.events);
 };
 
-/* 月视图 */
+/* =====================
+   月视图 - 大表格
+   ===================== */
 FA._renderMonthView = function(body) {
     var todayStr = FA.getTodayStr();
     var daysInMonth = new Date(FA._calYear, FA._calMonth + 1, 0).getDate();
@@ -253,30 +218,53 @@ FA._renderMonthView = function(body) {
     var holidays = FA.getHolidays(FA._calYear, FA._calMonth + 1);
     var pad = function(n) { return String(n).padStart(2, '0'); };
 
-    var html = '';
-    for (var i = 0; i < firstDay; i++) html += '<div class="calendar-day empty"></div>';
+    /* 星期表头 */
+    var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    var html = '<div class="calendar-weekdays">';
+    weekdays.forEach(function(w) {
+        html += '<div class="calendar-weekday">' + w + '</div>';
+    });
+    html += '</div>';
 
+    /* 日期格子 */
+    html += '<div class="calendar-days">';
+
+    /* 月初空白格 */
+    for (var i = 0; i < firstDay; i++) {
+        html += '<div class="calendar-day empty"></div>';
+    }
+
+    /* 每一天 */
     for (var d = 1; d <= daysInMonth; d++) {
         var dateStr = FA._calYear + '-' + pad(FA._calMonth + 1) + '-' + pad(d);
         var hasEvent = FA.events.some(function(e) { return e.date === dateStr; });
         var holiday = holidays[dateStr];
         var isToday = dateStr === todayStr;
+        var isWeekend = new Date(FA._calYear, FA._calMonth, d).getDay();
+        var isSat = (isWeekend === 6);
+        var isSun = (isWeekend === 0);
 
         var classes = 'calendar-day';
         if (hasEvent) classes += ' has-event';
         if (holiday) classes += ' has-holiday';
         if (isToday) classes += ' today';
+        if (isSat) classes += ' weekend';
+        if (isSun) classes += ' weekend';
 
         var holidayHtml = holiday ? '<div class="day-holiday">' + holiday.name + '</div>' : '';
 
         html += '<div class="' + classes + '" onclick="FA.dayClick(\'' + dateStr + '\')">' +
-                '<div>' + d + '</div>' + holidayHtml + '</div>';
+                '<div class="day-num">' + d + '</div>' + holidayHtml + '</div>';
     }
+
+    html += '</div>';
 
     body.innerHTML = html;
 };
 
-/* 日视图 */
+/* =====================
+   日视图
+   ===================== */
 FA._renderDayView = function(body) {
     var dateStr = FA._selectedDate || FA.getTodayStr();
     var dayEvents = FA.events.filter(function(e) { return e.date === dateStr; });
@@ -422,7 +410,6 @@ FA.openDatePicker = function() {
         document.body.appendChild(modal);
     }
 
-    /* 初始化滚轮位置 */
     var initDate = FA._selectedDate ? FA._selectedDate.split('-') :
                    [String(FA._calYear), String(FA._calMonth + 1).padStart(2, '0'), '01'];
     var initYear = parseInt(initDate[0]);
@@ -514,7 +501,6 @@ FA._dpGetDays = function(year, month) {
     return days;
 };
 
-/* 当年/月变化时更新天数滚轮 */
 FA._dpUpdateDays = function() {
     var state = FA._dpState;
     var days = FA._dpGetDays(state.year, state.month);
@@ -525,21 +511,18 @@ FA._dpUpdateDays = function() {
     });
 };
 
-/* 设置滚轮 */
 FA._setupDateWheel = function(wheelId, items, selectedValue, onChange) {
     var wheel = document.getElementById(wheelId);
     if (!wheel) return;
 
     var itemsContainer = wheel.querySelector('.date-wheel-items');
     var itemHeight = 40;
-    var centerOffset = 60; /* (160/2 - 40/2) = 60 */
+    var centerOffset = 60;
 
-    /* 渲染选项 */
-    itemsContainer.innerHTML = items.map(function(item) {
-        return '<div class="date-wheel-item" data-value="' + item.value + '" data-index="' + item.index + '">' + item.label + '</div>';
+    itemsContainer.innerHTML = items.map(function(item, idx) {
+        return '<div class="date-wheel-item" data-value="' + item.value + '" data-index="' + idx + '">' + item.label + '</div>';
     }).join('');
 
-    /* 找到选中项索引 */
     var currentIndex = 0;
     for (var i = 0; i < items.length; i++) {
         if (items[i].value === selectedValue) { currentIndex = i; break; }
@@ -551,19 +534,16 @@ FA._setupDateWheel = function(wheelId, items, selectedValue, onChange) {
     };
     updatePosition(false);
 
-    /* 清除旧事件监听 */
     var newWheel = wheel.cloneNode(true);
     wheel.parentNode.replaceChild(newWheel, wheel);
     wheel = newWheel;
     itemsContainer = wheel.querySelector('.date-wheel-items');
 
-    /* 重新渲染 */
     itemsContainer.innerHTML = items.map(function(item, idx) {
         return '<div class="date-wheel-item" data-value="' + item.value + '" data-index="' + idx + '">' + item.label + '</div>';
     }).join('');
     updatePosition(false);
 
-    /* 拖拽支持 */
     var startY = 0;
     var startTranslate = 0;
     var currentTranslate = centerOffset - currentIndex * itemHeight;
@@ -604,7 +584,6 @@ FA._setupDateWheel = function(wheelId, items, selectedValue, onChange) {
     wheel.addEventListener('touchmove', onMove, { passive: false });
     wheel.addEventListener('touchend', onEnd);
 
-    /* 点击选项 */
     wheel.querySelectorAll('.date-wheel-item').forEach(function(itemEl, idx) {
         itemEl.addEventListener('click', function() {
             if (isDragging) return;
@@ -615,7 +594,6 @@ FA._setupDateWheel = function(wheelId, items, selectedValue, onChange) {
         });
     });
 
-    /* 鼠标滚轮 */
     wheel.addEventListener('wheel', function(e) {
         e.preventDefault();
         var delta = e.deltaY > 0 ? 1 : -1;
@@ -655,7 +633,6 @@ FA.saveEvent = function() {
     FA.closeModal('add-event-modal');
     FA.renderAll();
 
-    /* 清空表单 */
     document.getElementById('eventTitle').value = '';
     document.getElementById('eventDate').value = '';
     document.getElementById('eventTime').value = '';
