@@ -49,6 +49,7 @@ FA._esc = function(str) {
         '.edit-avatar-area { display:flex; flex-direction:column; align-items:center; gap:10px; flex-shrink:0; }',
         '.edit-avatar-preview { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,#007AFF,#0040FF); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:32px; cursor:pointer; overflow:hidden; box-shadow:0 4px 12px rgba(0,122,255,0.25); }',
         '.edit-avatar-preview > div { width:100%; height:100%; border-radius:50%; }',
+        '.member-avatar > div { width:100%; height:100%; border-radius:50%; }',
         '.btn-upload-avatar { padding:6px 14px; border-radius:8px; border:1px solid rgba(0,0,0,0.08); background:white; color:#007AFF; font-size:12px; cursor:pointer; transition:all 0.2s; }',
         '.btn-upload-avatar:hover { background:rgba(0,122,255,0.05); }',
         '.edit-basic-info { flex:1; min-width:0; }',
@@ -186,9 +187,9 @@ FA.renderMembers = function() {
 
         /* 头像: 有图片用图片，否则用首字 */
         var avatarInner = m.avatar
-            ? '<div style="background-image:url(\'' + m.avatar + '\');background-size:cover;background-position:center"></div>'
+            ? '<div style="width:100%;height:100%;border-radius:50%;background-image:url(\'' + m.avatar + '\');background-size:cover;background-position:center"></div>'
             : FA._esc(firstChar);
-        var avatarBg = m.avatar ? 'transparent' : ('background:' + color);
+        var avatarBg = m.avatar ? 'background:transparent' : ('background:' + color);
 
         /* 实名认证徽章 */
         var verifiedBadge = m.verified
@@ -271,6 +272,13 @@ FA.editMember = function(index) {
     FA._editingIndex = index;
     FA._editingSelf = isSelf;
 
+    /* 设置验证目标用户: 编辑他人时验证使用对方安全信息 (超管VAL除外) */
+    if (!isSelf) {
+        FA.Verify.setTargetUser(m.username);
+    } else {
+        FA.Verify.clearTargetUser();
+    }
+
     /* 确保字段存在 */
     if (!m.documents) m.documents = [];
     if (!m.bankCards) m.bankCards = [];
@@ -305,9 +313,9 @@ FA.editMember = function(index) {
 
     /* 构建头像预览 */
     var avatarInner = m.avatar
-        ? '<div style="background-image:url(\'' + m.avatar + '\');background-size:cover;background-position:center"></div>'
+        ? '<div style="width:100%;height:100%;border-radius:50%;background-image:url(\'' + m.avatar + '\');background-size:cover;background-position:center"></div>'
         : FA._esc((m.nameCn || m.name || '?').charAt(0));
-    var avatarStyle = m.avatar ? '' : ('background:' + color);
+    var avatarStyle = m.avatar ? 'background:transparent' : ('background:' + color);
 
     /* 构建敏感区域 */
     var idcardAreaHTML = FA._buildIdCardArea(m, canViewSensitive);
@@ -324,7 +332,7 @@ FA.editMember = function(index) {
     modal.id = modalId;
     modal.innerHTML =
         '<div class="modal-content" style="max-width:680px;max-height:90vh;overflow-y:auto">' +
-            '<button class="modal-close" onclick="FA.closeModal(\'' + modalId + '\')">&times;</button>' +
+            '<button class="modal-close" onclick="FA._closeMemberEdit()">&times;</button>' +
             '<div class="modal-header"><h3>编辑成员</h3></div>' +
 
             /* 头像 + 基本信息 */
@@ -371,7 +379,7 @@ FA.editMember = function(index) {
 
             /* 操作按钮 */
             '<div class="modal-actions">' +
-                '<button class="btn-secondary" onclick="FA.closeModal(\'' + modalId + '\')">取消</button>' +
+                '<button class="btn-secondary" onclick="FA._closeMemberEdit()">取消</button>' +
                 '<button class="btn-primary" onclick="FA.saveMember(' + index + ')">保存</button>' +
             '</div>' +
         '</div>';
@@ -392,7 +400,7 @@ FA.editMember = function(index) {
 
     /* 点击背景关闭 */
     modal.addEventListener('click', function(e) {
-        if (e.target === modal) FA.closeModal(modalId);
+        if (e.target === modal) FA._closeMemberEdit();
     });
 
     FA.showModal(modalId);
@@ -434,6 +442,12 @@ FA._showVerifyForEdit = function(username) {
     FA.Verify.showRealNameVerify(username, verifyStatus);
 };
 
+/* 关闭编辑弹窗时清除验证目标用户 */
+FA._closeMemberEdit = function() {
+    FA.Verify.clearTargetUser();
+    FA.closeModal('member-edit-modal');
+};
+
 /* =====================
    头像上传处理
    ===================== */
@@ -461,7 +475,7 @@ FA._handleAvatarUpload = function(input) {
 
             var preview = document.getElementById('edit-avatar-preview');
             if (preview) {
-                preview.innerHTML = '<div style="background-image:url(\'' + compressed + '\');background-size:cover;background-position:center"></div>';
+                preview.innerHTML = '<div style="width:100%;height:100%;border-radius:50%;background-image:url(\'' + compressed + '\');background-size:cover;background-position:center"></div>';
                 preview.style.background = 'transparent';
                 preview.dataset.avatar = compressed;
             }
@@ -702,8 +716,56 @@ FA.saveMember = function(index) {
     }
 
     FA.Data.saveData(FA.DB_KEYS.members, FA.members);
+
+    /* =====================
+       成员-账户联动: 同步基本信息到 FA.accounts
+       编辑成员时, 登录账户的 name/nameCn/phone/email/gender/role 同步更新
+       ===================== */
+    var username = m.username;
+    var acc = FA.accounts[username];
+    if (acc) {
+        var changes = [];
+        if (acc.name !== m.name) { changes.push({field:'name', oldValue:acc.name, newValue:m.name}); acc.name = m.name; }
+        if (acc.nameCn !== m.nameCn) { changes.push({field:'nameCn', oldValue:acc.nameCn, newValue:m.nameCn}); acc.nameCn = m.nameCn; }
+        if (acc.phone !== m.phone) { changes.push({field:'phone', oldValue:acc.phone, newValue:m.phone}); acc.phone = m.phone; }
+        if ((acc.email || '') !== (m.email || '')) { changes.push({field:'email', oldValue:acc.email||'', newValue:m.email||''}); acc.email = m.email || ''; }
+        if ((acc.gender || '') !== (m.gender || '')) { changes.push({field:'gender', oldValue:acc.gender||'', newValue:m.gender||''}); acc.gender = m.gender || ''; }
+        if (acc.role !== m.role) { changes.push({field:'role', oldValue:acc.role, newValue:m.role}); acc.role = m.role; }
+
+        /* 持久化账户到 localStorage */
+        FA.Data.saveAccounts();
+
+        /* 同步头像到 localStorage */
+        if (m.avatar) {
+            localStorage.setItem('fi_avatar_' + username, m.avatar);
+        }
+
+        /* 如果是当前用户, 更新 FA.currentUser 和 UI */
+        if (FA.currentUser && FA.currentUser.username === username) {
+            FA.currentUser.name = acc.name;
+            FA.currentUser.nameCn = acc.nameCn;
+            FA.currentUser.role = acc.role;
+            FA.currentUser.phone = acc.phone;
+            FA.currentUser.email = acc.email;
+            FA.currentUser.gender = acc.gender;
+            if (FA.Auth && FA.Auth.updateUserUI) FA.Auth.updateUserUI();
+            FA.applyPermissions();
+            if (FA.renderPermissions) FA.renderPermissions();
+        }
+
+        /* 记录信息变更通知 (5分钟延迟 + 批量合并) */
+        if (changes.length > 0 && FA.Data.recordInfoChange) {
+            FA.Data.recordInfoChange(username, changes);
+        }
+
+        /* 记录操作日志 */
+        if (FA.Data.recordOpLog) {
+            FA.Data.recordOpLog('edit_member', '修改成员信息: ' + (m.nameCn || m.name));
+        }
+    }
+
     FA.renderMembers();
-    FA.closeModal('member-edit-modal');
+    FA._closeMemberEdit();
     FA.showToast('成员信息已保存', 'success');
 };
 
@@ -717,9 +779,22 @@ FA.deleteMember = function(index) {
     var m = FA.members[index];
     if (!m) return;
     if (!confirm('确定删除 ' + (m.nameCn || m.name) + '？')) return;
+
+    /* 成员-账户联动: 同时删除登录账户 */
+    if (m.username && FA.accounts[m.username]) {
+        delete FA.accounts[m.username];
+        FA.Data.saveAccounts();
+        localStorage.removeItem('fi_avatar_' + m.username);
+    }
+
     FA.members.splice(index, 1);
     FA.Data.saveData(FA.DB_KEYS.members, FA.members);
     FA.renderMembers();
+
+    if (FA.Data.recordOpLog) {
+        FA.Data.recordOpLog('delete_member', '删除成员: ' + (m.nameCn || m.name));
+    }
+
     FA.showToast('成员已删除', 'info');
 };
 
@@ -766,18 +841,39 @@ FA.saveMemberNew = function() {
     var genderEl = document.getElementById('newMemberGender');
     var gender = (genderEl && genderEl.dataset.value) || '男';
 
+    /* 生成用户名: 英文姓名小写去空格 */
+    var username = name.toLowerCase().replace(/\s/g, '');
+
+    /* 检查用户名是否已存在 */
+    if (FA.accounts[username]) {
+        return FA.showToast('用户名 ' + username + ' 已存在，请使用其他姓名', 'error');
+    }
+
     FA.members.push({
         name: name,
         nameCn: nameCn || name,
         role: role,
         phone: phone,
         gender: gender,
-        username: name.toLowerCase().replace(/\s/g, ''),
+        username: username,
         email: '',
         verified: false,
         documents: [],
         bankCards: []
     });
+
+    /* 成员-账户联动: 创建对应的登录账户 */
+    FA.accounts[username] = {
+        password: phone,  /* 默认密码 = 手机号, 首次登录后应修改 */
+        role: role,
+        name: name,
+        nameCn: nameCn || name,
+        phone: phone,
+        email: '',
+        gender: gender,
+        securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ]
+    };
+    FA.Data.saveAccounts();
 
     FA.Data.saveData(FA.DB_KEYS.members, FA.members);
     FA.renderMembers();
