@@ -166,6 +166,21 @@ FA.Settings = {
                         '</div>' +
                         '<button class="btn-primary" onclick="FA.showSection(\'registrations-section\')">查看</button>' +
                     '</div>' +
+                    '<div class="settings-item" id="syncRow">' +
+                        '<div class="settings-item-left">' +
+                            '<div class="settings-item-icon">☁️</div>' +
+                            '<div class="settings-item-content"><h4>GitHub 云同步</h4><p>跨浏览器 / 设备共享数据</p></div>' +
+                        '</div>' +
+                        '<button class="btn-primary" onclick="FA.Sync.showConfigModal()">配置</button>' +
+                    '</div>' +
+                    '<div id="syncStatusArea" style="padding:4px 0 14px;font-size:13px;color:#666;display:none">' +
+                        '<span id="syncStatusIndicator"></span>' +
+                        '<div style="margin-top:10px;display:flex;gap:8px">' +
+                            '<button class="toolbar-btn" onclick="FA.Sync.pull()">立即拉取</button>' +
+                            '<button class="toolbar-btn" onclick="FA.Sync.push()">立即推送</button>' +
+                        '</div>' +
+                        '<div style="margin-top:8px;font-size:11px;color:#aaa" id="syncConfigHint"></div>' +
+                    '</div>' +
                 '</div>' +
             '</div>' +
 
@@ -249,6 +264,7 @@ FA.Settings = {
         /* 渲染登录日志 + 操作日志入口(超管显示登录日志) */
         FA.Settings.renderLoginLogs();
         FA.Settings.renderOpLogs();
+        FA.Settings.renderSync();
     },
 
     /* 切换标签页 */
@@ -676,6 +692,27 @@ FA.Settings = {
         if (regRow) regRow.style.display = isSuper ? '' : 'none';
     },
 
+    /* =====================
+       GitHub 云同步状态 (超管可见)
+       ===================== */
+    renderSync: function() {
+        var isSuper = (FA.currentUser && FA.currentUser.role === 'superadmin');
+        var syncRow = document.getElementById('syncRow');
+        if (syncRow) syncRow.style.display = isSuper ? '' : 'none';
+
+        var area = document.getElementById('syncStatusArea');
+        if (!area) return;
+        if (!isSuper || !FA.Sync.isConfigured()) { area.style.display = 'none'; return; }
+
+        area.style.display = '';
+        FA.Sync.setStatus(FA.Sync.status);
+        var hint = document.getElementById('syncConfigHint');
+        if (hint) {
+            hint.textContent = FA.Sync.config.owner + '/' + FA.Sync.config.repo + ' @ ' +
+                FA.Sync.config.branch + ' · ' + FA.Sync.config.path;
+        }
+    },
+
     showLoginLogs: function() {
         if (!FA.currentUser || FA.currentUser.role !== 'superadmin') {
             return FA.showToast('仅超级管理员可查看登录日志', 'error');
@@ -794,51 +831,4 @@ FA.Settings = {
                 '<div id="opLogsBody" style="max-height:480px;overflow-y:auto">' + rows + '</div>' +
                 '<div class="modal-actions">' +
                     '<button class="btn-secondary" style="color:#e74c3c" onclick="if(confirm(\'确定清空自己的操作日志？\')){FA.opLogs = (FA.opLogs||[]).filter(function(l){return l.username !== FA.currentUser.username;});FA.Data.saveData(FA.DB_KEYS.opLogs, FA.opLogs);FA.closeModal(\'' + modalId + '\');FA.showToast(\'已清空您的操作日志\',\'info\');}">清空我的日志</button>' +
-                    '<button class="btn-primary" onclick="FA.closeModal(\'' + modalId + '\')">关闭</button>' +
-                '</div>' +
-            '</div>';
-
-        document.body.appendChild(modal);
-        FA.showModal(modalId);
-
-        if (showAllUsers) {
-            var filterEl = document.getElementById('opLogUserFilter');
-            var searchEl = document.getElementById('opLogSearchInput');
-            if (filterEl) filterEl.addEventListener('change', FA.Settings._filterOpLogs);
-            if (searchEl) searchEl.addEventListener('input', FA.Settings._filterOpLogs);
-        }
-    },
-
-    _filterOpLogs: function() {
-        var body = document.getElementById('opLogsBody');
-        if (!body) return;
-        var userVal = document.getElementById('opLogUserFilter');
-        var searchVal = document.getElementById('opLogSearchInput');
-        var userF = userVal ? userVal.value : '';
-        var searchF = searchVal ? searchVal.value.toLowerCase() : '';
-
-        body.querySelectorAll('.op-log-row').forEach(function(row) {
-            var rowUser = row.dataset.user || '';
-            var rowText = row.textContent.toLowerCase();
-            var showUser = !userF || rowUser === userF;
-            var showSearch = !searchF || rowText.indexOf(searchF) !== -1;
-            row.style.display = (showUser && showSearch) ? '' : 'none';
-        });
-    }
-};
-
-/* =====================
-   渲染权限列表
-   ===================== */
-FA.renderPermissions = function() {
-    var list = document.getElementById('permissionsList');
-    if (!list || !FA.currentUser) return;
-    var perms = FA.PERMISSIONS[FA.currentUser.role];
-    list.innerHTML = Object.keys(FA.permissionLabels).map(function(key) {
-        var hasPerm = perms && perms[key];
-        return '<div class="permission-grid-item">' +
-            '<span class="permission-icon ' + (hasPerm ? 'yes' : 'no') + '">' + (hasPerm ? '✓' : '✕') + '</span>' +
-            '<span class="permission-text">' + FA.permissionLabels[key] + '</span>' +
-        '</div>';
-    }).join('');
-};
+                    '<button class="btn-primary"
