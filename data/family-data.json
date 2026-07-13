@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T12:56:26.389Z",
+  "updatedAt": "2026-07-13T12:56:36.438Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -19,17 +19,6 @@
       "todo"
     ],
     "fi_login_logs": [
-      {
-        "id": "ll_1783947383228_zyet",
-        "username": "zhuha",
-        "action": "login",
-        "detail": "用户登录成功",
-        "time": "2026-07-13T12:56:23.228Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
       {
         "id": "ll_1783947180832_j574",
         "username": "zhuha",
@@ -681,7 +670,7 @@
       ]
     },
     "fi_todos": [],
-    "fi_login_time": "2026/7/13 20:56:23",
+    "fi_login_time": "2026/7/13 20:53:00",
     "fi_notifications": [
       {
         "id": 1783938138276,
@@ -833,13 +822,6 @@
       }
     },
     "fi_op_logs": [
-      {
-        "id": "op_1783947383228_77nr",
-        "username": "zhuha",
-        "action": "login",
-        "detail": "用户登录系统",
-        "time": "2026-07-13T12:56:23.228Z"
-      },
       {
         "id": "op_1783947180832_hnen",
         "username": "zhuha",
