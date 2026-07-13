@@ -164,7 +164,7 @@ FA.Auth = {
             }
 
             try {
-                var expectedVal = await FA.generateVAL(FA.selectedOffset);
+                var expectedVal = await FA.generateVAL(FA.selectedOffset, loginUsername);
                 var inputVal = self.getVALInput();
                 if (inputVal.length !== 6 || inputVal !== expectedVal) {
                     self.clearVAL();
@@ -363,12 +363,15 @@ FA.Auth = {
             loginTime: new Date().toLocaleString('zh-CN')
         };
 
-        localStorage.setItem('fi_session', username);
+        localStorage.setItem(FA.sessionKey(), username);
         localStorage.setItem('fi_login_time', FA.currentUser.loginTime);
 
         document.getElementById('loginCard').style.display = 'none';
         document.body.classList.add('main-active');
         document.getElementById('mainContainer').style.display = 'block';
+
+        /* 加载当前用户的首页布局 */
+        if (FA.Data.loadUserLayout) FA.Data.loadUserLayout();
 
         this.updateUserUI();
         FA.applyPermissions();
@@ -409,6 +412,19 @@ FA.Auth = {
         profileRole.textContent = FA.getRoleName(u.role);
         roleBadge.className = 'role-badge ' + FA.getRoleClass(u.role);
         profileRole.className = 'role-badge ' + FA.getRoleClass(u.role);
+
+        /* 注册审核菜单: 仅超管可见 */
+        var regMenuItem = document.getElementById('registrationMenuItem');
+        if (regMenuItem) {
+            regMenuItem.style.display = (u.role === 'superadmin') ? '' : 'none';
+        }
+        /* 注册审核徽章 */
+        var regBadge = document.getElementById('regBadge');
+        if (regBadge && FA.Registration && FA.Registration.getPendingCount) {
+            var pending = FA.Registration.getPendingCount();
+            regBadge.textContent = pending;
+            regBadge.style.display = pending > 0 ? '' : 'none';
+        }
     },
 
     /* 用户浮窗 (微信风格) */
@@ -480,7 +496,7 @@ FA.Auth = {
         if (FA.Data.recordOpLog) {
             FA.Data.recordOpLog('switch_user', '切换用户: ' + username);
         }
-        localStorage.setItem('fi_session', username);
+        localStorage.setItem(FA.sessionKey(), username);
         localStorage.removeItem('fi_verify_session');
         location.reload();
     },
@@ -496,7 +512,7 @@ FA.Auth = {
                 FA.Data.recordOpLog('logout', '用户退出系统');
             }
         }
-        localStorage.removeItem('fi_session');
+        localStorage.removeItem(FA.sessionKey());
         localStorage.removeItem('fi_login_time');
         localStorage.removeItem('fi_verify_session');
         document.body.classList.remove('main-active');
@@ -505,7 +521,7 @@ FA.Auth = {
 
     /* 会话恢复 */
     restoreSession: function() {
-        var savedUser = localStorage.getItem('fi_session');
+        var savedUser = localStorage.getItem(FA.sessionKey());
         if (savedUser && FA.accounts[savedUser]) {
             this.enterMainSystem(savedUser);
             return true;
