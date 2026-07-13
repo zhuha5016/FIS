@@ -152,6 +152,20 @@ FA.Settings = {
                         '<button class="btn-primary" onclick="FA.Settings.showOpLogs()">查看</button>' +
                         '<button class="btn-primary" id="manageAllOpLogsBtn" style="background:linear-gradient(45deg,#007AFF,#5856D6);display:none;margin-left:6px" onclick="FA.Settings.showOpLogs(true)">⚙️ 管理</button>' +
                     '</div>' +
+                    '<div class="settings-item" id="loginLogsRow" style="display:none">' +
+                        '<div class="settings-item-left">' +
+                            '<div class="settings-item-icon">🔒</div>' +
+                            '<div class="settings-item-content"><h4>登录日志</h4><p>仅超级管理员可见</p></div>' +
+                        '</div>' +
+                        '<button class="btn-primary" onclick="FA.Settings.showLoginLogs()">查看</button>' +
+                    '</div>' +
+                    '<div class="settings-item" id="registrationMgmtRow" style="display:none">' +
+                        '<div class="settings-item-left">' +
+                            '<div class="settings-item-icon">📝</div>' +
+                            '<div class="settings-item-content"><h4>注册审核</h4><p>审核新用户注册申请</p></div>' +
+                        '</div>' +
+                        '<button class="btn-primary" onclick="FA.showSection(\'registrations-section\')">查看</button>' +
+                    '</div>' +
                 '</div>' +
             '</div>' +
 
@@ -190,13 +204,6 @@ FA.Settings = {
                             '<div class="settings-item-content"><h4>VAL 服务</h4><p>随机数生成状态</p></div>' +
                         '</div>' +
                         '<span id="valServiceStatus" style="color:#28a745;font-size:14px">在线</span>' +
-                    '</div>' +
-                    '<div class="settings-item" id="loginLogsRow" style="display:none">' +
-                        '<div class="settings-item-left">' +
-                            '<div class="settings-item-icon">🔒</div>' +
-                            '<div class="settings-item-content"><h4>登录日志</h4><p>仅最高管理员可见</p></div>' +
-                        '</div>' +
-                        '<button class="btn-primary" onclick="FA.Settings.showLoginLogs()">查看</button>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -662,15 +669,16 @@ FA.Settings = {
        登录日志 (超管可见)
        ===================== */
     renderLoginLogs: function() {
+        var isSuper = (FA.currentUser && FA.currentUser.role === 'superadmin');
         var row = document.getElementById('loginLogsRow');
-        if (row) {
-            row.style.display = (FA.currentUser && FA.currentUser.role === 'superadmin') ? '' : 'none';
-        }
+        if (row) row.style.display = isSuper ? '' : 'none';
+        var regRow = document.getElementById('registrationMgmtRow');
+        if (regRow) regRow.style.display = isSuper ? '' : 'none';
     },
 
     showLoginLogs: function() {
         if (!FA.currentUser || FA.currentUser.role !== 'superadmin') {
-            return FA.showToast('仅最高管理员可查看登录日志', 'error');
+            return FA.showToast('仅超级管理员可查看登录日志', 'error');
         }
 
         var modalId = 'login-logs-modal';
@@ -693,11 +701,14 @@ FA.Settings = {
                 var timeStr = l.time ? new Date(l.time).toLocaleString('zh-CN', {hour12:false}) : '';
                 var color = actionColors[l.action] || '#666';
                 var actionName = actionNames[l.action] || l.action;
-                return '<div style="font-size:12px;color:#666;margin-bottom:4px;padding:8px;background:rgba(245,245,247,0.5);border-radius:6px;display:flex;gap:10px;align-items:center">' +
+                return '<div style="font-size:12px;color:#666;margin-bottom:4px;padding:8px;background:rgba(245,245,247,0.5);border-radius:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
                     '<span style="display:inline-block;min-width:54px;padding:2px 6px;background:' + color + ';color:#fff;border-radius:4px;font-size:11px;text-align:center">' + actionName + '</span>' +
                     '<span style="min-width:80px"><strong>' + userName + '</strong> (' + l.username + ')</span>' +
-                    '<span style="flex:1">' + (l.detail || '') + '</span>' +
-                    '<span style="color:#aaa;font-size:11px">' + timeStr + '</span>' +
+                    '<span style="flex:1;min-width:120px">' + (l.detail || '') + '</span>' +
+                    '<span style="color:#007AFF;font-size:11px;white-space:nowrap">🌐 ' + (l.browser || '') + '</span>' +
+                    '<span style="color:#888;font-size:11px;white-space:nowrap">📍 ' + (l.ip || '本地') + '</span>' +
+                    (l.location && l.location !== '获取中...' ? '<span style="color:#888;font-size:11px;white-space:nowrap">🗺 ' + l.location + '</span>' : '') +
+                    '<span style="color:#aaa;font-size:11px;white-space:nowrap">' + timeStr + '</span>' +
                 '</div>';
             }).join('');
 
