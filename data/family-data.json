@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T12:24:00.094Z",
+  "updatedAt": "2026-07-13T12:24:03.896Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -25,8 +25,8 @@
         "action": "login",
         "detail": "用户登录成功",
         "time": "2026-07-13T12:23:57.090Z",
-        "ip": "获取中...",
-        "location": "获取中...",
+        "ip": "本地",
+        "location": "无法获取",
         "browser": "Edge / Windows",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
       },
