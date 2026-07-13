@@ -831,4 +831,51 @@ FA.Settings = {
                 '<div id="opLogsBody" style="max-height:480px;overflow-y:auto">' + rows + '</div>' +
                 '<div class="modal-actions">' +
                     '<button class="btn-secondary" style="color:#e74c3c" onclick="if(confirm(\'确定清空自己的操作日志？\')){FA.opLogs = (FA.opLogs||[]).filter(function(l){return l.username !== FA.currentUser.username;});FA.Data.saveData(FA.DB_KEYS.opLogs, FA.opLogs);FA.closeModal(\'' + modalId + '\');FA.showToast(\'已清空您的操作日志\',\'info\');}">清空我的日志</button>' +
-                    '<button class="btn-primary"
+                    '<button class="btn-primary" onclick="FA.closeModal(\'' + modalId + '\')">关闭</button>' +
+                '</div>' +
+            '</div>';
+
+        document.body.appendChild(modal);
+        FA.showModal(modalId);
+
+        if (showAllUsers) {
+            var filterEl = document.getElementById('opLogUserFilter');
+            var searchEl = document.getElementById('opLogSearchInput');
+            if (filterEl) filterEl.addEventListener('change', FA.Settings._filterOpLogs);
+            if (searchEl) searchEl.addEventListener('input', FA.Settings._filterOpLogs);
+        }
+    },
+
+    _filterOpLogs: function() {
+        var body = document.getElementById('opLogsBody');
+        if (!body) return;
+        var userVal = document.getElementById('opLogUserFilter');
+        var searchVal = document.getElementById('opLogSearchInput');
+        var userF = userVal ? userVal.value : '';
+        var searchF = searchVal ? searchVal.value.toLowerCase() : '';
+
+        body.querySelectorAll('.op-log-row').forEach(function(row) {
+            var rowUser = row.dataset.user || '';
+            var rowText = row.textContent.toLowerCase();
+            var showUser = !userF || rowUser === userF;
+            var showSearch = !searchF || rowText.indexOf(searchF) !== -1;
+            row.style.display = (showUser && showSearch) ? '' : 'none';
+        });
+    }
+};
+
+/* =====================
+   渲染权限列表
+   ===================== */
+FA.renderPermissions = function() {
+    var list = document.getElementById('permissionsList');
+    if (!list || !FA.currentUser) return;
+    var perms = FA.PERMISSIONS[FA.currentUser.role];
+    list.innerHTML = Object.keys(FA.permissionLabels).map(function(key) {
+        var hasPerm = perms && perms[key];
+        return '<div class="permission-grid-item">' +
+            '<span class="permission-icon ' + (hasPerm ? 'yes' : 'no') + '">' + (hasPerm ? '✓' : '✕') + '</span>' +
+            '<span class="permission-text">' + FA.permissionLabels[key] + '</span>' +
+        '</div>';
+    }).join('');
+};
