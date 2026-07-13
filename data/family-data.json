@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T13:22:38.402Z",
+  "updatedAt": "2026-07-13T13:22:58.418Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -828,6 +828,13 @@
     },
     "fi_op_logs": [
       {
+        "id": "op_1783948975417_uv9t",
+        "username": "zhuha",
+        "action": "edit_member",
+        "detail": "修改成员信息: 胡桂丽",
+        "time": "2026-07-13T13:22:55.417Z"
+      },
+      {
         "id": "op_1783947180832_hnen",
         "username": "zhuha",
         "action": "login",
@@ -1507,10 +1514,10 @@
       "huguili": {
         "password": "19800328",
         "role": "senior",
-        "name": "huguili",
+        "name": "Guili Hu",
         "nameCn": "胡桂丽",
         "phone": "13606086703",
-        "email": "huguili@family.local",
+        "email": "",
         "gender": "女",
         "securityQuestions": [
           {
