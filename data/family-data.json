@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T12:53:04.707Z",
+  "updatedAt": "2026-07-13T12:53:50.633Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -19,149 +19,6 @@
       "todo"
     ],
     "fi_login_logs": [
-      {
-        "id": "ll_1783947180832_j574",
-        "username": "zhuha",
-        "action": "login",
-        "detail": "用户登录成功",
-        "time": "2026-07-13T12:53:00.832Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947173604_jboz",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:53.604Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947171591_j0y2",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:51.591Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947169749_6j6u",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:49.749Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947168485_8kn6",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:48.485Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947166524_6nnc",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:46.524Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947164782_vria",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:44.782Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947162875_aemf",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:42.875Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947160957_ucsc",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:40.957Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947159124_ry4r",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:39.124Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947157306_cnr6",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:37.306Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947154791_xb3i",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:34.791Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
-      {
-        "id": "ll_1783947151931_tlxz",
-        "username": "zhuha",
-        "action": "failed",
-        "detail": "动态验证码错误",
-        "time": "2026-07-13T12:52:31.931Z",
-        "ip": "本地",
-        "location": "无法获取",
-        "browser": "Edge / Windows",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
-      },
       {
         "id": "ll_1783945437090_l110",
         "username": "zhuha",
@@ -670,7 +527,7 @@
       ]
     },
     "fi_todos": [],
-    "fi_login_time": "2026/7/13 20:53:00",
+    "fi_login_time": "2026/7/13 20:23:57",
     "fi_notifications": [
       {
         "id": 1783938138276,
@@ -822,13 +679,6 @@
       }
     },
     "fi_op_logs": [
-      {
-        "id": "op_1783947180832_hnen",
-        "username": "zhuha",
-        "action": "login",
-        "detail": "用户登录系统",
-        "time": "2026-07-13T12:53:00.832Z"
-      },
       {
         "id": "op_1783945437091_kohh",
         "username": "zhuha",
