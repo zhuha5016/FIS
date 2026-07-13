@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T13:23:34.435Z",
+  "updatedAt": "2026-07-13T13:23:44.454Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -678,7 +678,7 @@
         "title": "审批已撤回",
         "content": "1 · APR-20260713-0003 已撤回",
         "time": "2026-07-13T13:23:31.432Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783938138276,
