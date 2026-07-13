@@ -26,12 +26,15 @@ FA.Sync = {
     _pushTimer: null,
     _pullTimer: null,
     _hasPendingPush: false, // 是否有未推送的本地改动 (防止自动拉取覆盖)
+    _token: '',            // 从 fi_sync_token 单独读取, 不推送到 GitHub
     _initialized: false,
 
-    /* 不应同步的键 (会话 / 纯本地偏好) */
+    /* 不应同步的键 (会话 / 纯本地偏好 / 同步配置 / Token) */
     EXCLUDE_KEYS: [
         'fi_session',          // 旧会话键 (已废弃)
-        'fi_language'          // 语言偏好 (本地)
+        'fi_language',          // 语言偏好 (本地)
+        'fi_sync_config',       // 同步配置 (仓库地址等, 本地配置即可)
+        'fi_sync_token'         // Token 绝不能同步到 GitHub
     ],
 
     /* ============================================================
@@ -41,9 +44,26 @@ FA.Sync = {
         if (this._initialized) return;
         this._initialized = true;
 
-        /* 读取已保存的配置 */
+        /* 读取已保存的配置 (不含 token) */
         var saved = FA.Data.loadData('fi_sync_config', null);
-        if (saved) this.config = Object.assign({}, this.config, saved);
+        if (saved) {
+            var cfg = Object.assign({}, this.config, saved);
+            /* 兼容旧配置: 如果 token 之前保存在 fi_sync_config 中, 迁移后清除 */
+            if (cfg.token) {
+                var legacyToken = cfg.token;
+                delete cfg.token;
+                this._token = legacyToken;
+                localStorage.setItem('fi_sync_token', JSON.stringify(legacyToken));
+                FA.Data.saveData('fi_sync_config', cfg);
+            }
+            this.config = cfg;
+        }
+        /* token 单独读取 */
+        var tk = localStorage.getItem('fi_sync_token');
+        if (tk) {
+            try { tk = JSON.parse(tk); } catch (e) {}
+            this._token = (typeof tk === 'string') ? tk : '';
+        }
 
         /* 挂钩 saveData, 数据变更时自动推送 */
         this._hookSaveData();
@@ -58,7 +78,7 @@ FA.Sync = {
     },
 
     isConfigured: function() {
-        return !!(this.config.owner && this.config.repo && this.config.token);
+        return !!(this.config.owner && this.config.repo && this._token);
     },
 
     /* 解析 GitHub 错误响应, 返回可读信息 (含 GitHub 原始 message) */
@@ -98,7 +118,7 @@ FA.Sync = {
         FA.showToast('正在测试连接…', 'info');
         fetch(url, {
             headers: {
-                'Authorization': 'Bearer ' + this.config.token,
+                'Authorization': 'Bearer ' + this._token,
                 'Accept': 'application/vnd.github.v3+json'
             }
         }).then(function(res) {
@@ -119,7 +139,16 @@ FA.Sync = {
     },
 
     saveConfig: function(cfg) {
+        var token = cfg.token || '';
+        delete cfg.token;                     // 配置对象中不存 token
         this.config = Object.assign({}, this.config, cfg);
+
+        /* token 单独保存到本地, 绝不同步到 GitHub */
+        if (token) {
+            this._token = token;
+            localStorage.setItem('fi_sync_token', JSON.stringify(token));
+        }
+
         FA.Data.saveData('fi_sync_config', this.config);
         if (this.isConfigured()) {
             this.startAutoPull();
@@ -184,7 +213,7 @@ FA.Sync = {
 
         return fetch(url, {
             headers: {
-                'Authorization': 'Bearer ' + this.config.token,
+                'Authorization': 'Bearer ' + this._token,
                 'Accept': 'application/vnd.github.v3+json'
             }
         }).then(function(res) {
@@ -254,7 +283,7 @@ FA.Sync = {
         return fetch(url, {
             method: 'PUT',
             headers: {
-                'Authorization': 'Bearer ' + this.config.token,
+                'Authorization': 'Bearer ' + this._token,
                 'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             },
@@ -295,7 +324,7 @@ FA.Sync = {
         return fetch(url, {
             method: 'PUT',
             headers: {
-                'Authorization': 'Bearer ' + this.config.token,
+                'Authorization': 'Bearer ' + this._token,
                 'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             },
@@ -370,7 +399,9 @@ FA.Sync = {
         var origSave = FA.Data.saveData;
         FA.Data.saveData = function(key, data) {
             var result = origSave.call(FA.Data, key, data);
-            if (key && key.indexOf('fi_') === 0 && key.indexOf('fi_session_') !== 0) {
+            if (key && key.indexOf('fi_') === 0 &&
+                key.indexOf('fi_session_') !== 0 &&
+                key !== 'fi_sync_token') {
                 self.schedulePush();
             }
             return result;
@@ -402,7 +433,7 @@ FA.Sync = {
                 '<div class="modal-field"><label>仓库名</label><input id="syncRepo" value="' + FA._esc(cfg.repo || '') + '" placeholder="例如: FIS"></div>' +
                 '<div class="modal-field"><label>分支</label><input id="syncBranch" value="' + FA._esc(cfg.branch || 'main') + '"></div>' +
                 '<div class="modal-field"><label>数据文件路径</label><input id="syncPath" value="' + FA._esc(cfg.path || 'data/family-data.json') + '"></div>' +
-                '<div class="modal-field"><label>Access Token</label><input id="syncToken" type="password" value="' + FA._esc(cfg.token || '') + '" placeholder="ghp_xxx 或 github_pat_xxx"></div>' +
+                '<div class="modal-field"><label>Access Token</label><input id="syncToken" type="password" value="' + FA._esc(FA.Sync._token || '') + '" placeholder="ghp_xxx 或 github_pat_xxx"></div>' +
                 '<div style="margin:6px 0 10px;font-size:12px;color:#555"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="syncExcludePhotos" ' + (cfg.excludePhotos === false ? '' : 'checked') + '> 排除照片 (base64, 避免 GitHub 单文件 1MB 限制)</label></div>' +
                 '<div style="font-size:11px;color:#aaa;margin:0 0 14px;line-height:1.5">Token 保存在本浏览器 localStorage, 仅用于读写该仓库的数据文件。建议创建仅限此仓库的细粒度 Token。</div>' +
                 '<div class="modal-actions">' +
@@ -435,7 +466,11 @@ FA.Sync = {
     },
 
     disableSync: function() {
-        FA.Sync.config.token = '';
+        FA.Sync._token = '';
+        localStorage.removeItem('fi_sync_token');
+        FA.Sync.config = Object.assign({}, FA.Sync.config, {
+            owner: '', repo: '', path: 'data/family-data.json', branch: 'main', excludePhotos: true
+        });
         FA.Data.saveData('fi_sync_config', FA.Sync.config);
         if (FA.Sync._pullTimer) clearInterval(FA.Sync._pullTimer);
         FA.Sync.setStatus('disabled');
