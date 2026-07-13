@@ -9,18 +9,18 @@ window.FA = window.FA || {};
    账号体系 (用户名改为英文)
    ===================== */
 FA.accounts = {
-    "zhuha":      { password: "zhuha106424", role: "superadmin", name: "zhuha",   nameCn: "朱哈",   phone: "138****0001", email: "zhuha@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
-    "zhunengxin": { password: "19770714",   role: "senior",    name: "zhunengxin", nameCn: "朱能新", phone: "139****0002", email: "zhunengxin@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
-    "huguili":    { password: "19800328",   role: "senior",    name: "huguili",    nameCn: "胡桂丽", phone: "137****0003", email: "huguili@family.local", gender: "女", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
-    "zhurenmin":  { password: "19430513",   role: "user",      name: "zhurenmin",  nameCn: "朱人民", phone: "136****0004", email: "zhurenmin@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
-    "luoaiyu":    { password: "19520606",   role: "user",      name: "luoaiyu",    nameCn: "罗爱玉", phone: "135****0005", email: "luoaiyu@family.local", gender: "女", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] }
+    "zhuha":      { password: "zhuha106424", role: "superadmin", name: "zhuha",   nameCn: "朱淏",   phone: "18250857696", email: "zhuha@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "zhunengxin": { password: "19770714",   role: "senior",    name: "zhunengxin", nameCn: "朱能鑫", phone: "13799287164", email: "zhunengxin@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "huguili":    { password: "19800328",   role: "senior",    name: "huguili",    nameCn: "胡桂丽", phone: "13606086703", email: "huguili@family.local", gender: "女", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "zhurenmin":  { password: "19430513",   role: "user",      name: "zhurenmin",  nameCn: "朱仁民", phone: "18950996905", email: "zhurenmin@family.local", gender: "男", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] },
+    "luoaiyu":    { password: "19520606",   role: "user",      name: "luoaiyu",    nameCn: "罗爱玉", phone: "18950997559", email: "luoaiyu@family.local", gender: "女", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] }
 };
 
 /* 角色显示名映射 */
 FA.roleNames = {
-    superadmin: "最高管理员",
+    superadmin: "超级管理员",
     senior: "高级管理员",
-    user: "普通用户"
+    user: "普通账户"
 };
 
 /* =====================
@@ -46,7 +46,7 @@ FA.PERMISSIONS = {
         exportData: true, importData: false, resetData: false,
         manageSettings: true, manageNotifications: true,
         createApproval: true, approveApproval: true, deleteApproval: false,
-        viewSensitive: true, editLayout: false,
+        viewSensitive: true, editLayout: true,
         verifyIdentity: true
     },
     user: {
@@ -57,14 +57,14 @@ FA.PERMISSIONS = {
         exportData: false, importData: false, resetData: false,
         manageSettings: false, manageNotifications: false,
         createApproval: true, approveApproval: false, deleteApproval: false,
-        viewSensitive: false, editLayout: false,
+        viewSensitive: false, editLayout: true,
         verifyIdentity: false
     }
 };
 
 /* 权限中文标签 */
 FA.permissionLabels = {
-    addMember: "添加家庭成员", editMember: "编辑家庭成员", deleteMember: "删除家庭成员",
+    addMember: "添加家庭账户", editMember: "编辑家庭账户", deleteMember: "删除家庭账户",
     addDevice: "添加设备", deleteDevice: "删除设备", toggleDevice: "控制设备",
     addEvent: "添加日程", deleteEvent: "删除日程",
     addPhoto: "上传照片", deletePhoto: "删除照片", createAlbum: "创建相册", editAlbum: "编辑相册", deleteAlbum: "删除相册",
@@ -92,7 +92,13 @@ FA.DB_KEYS = {
     userVerify: 'fi_user_verified', // 存储每个用户的实名认证状态
     deletedApprovals: 'fi_deleted_approvals', // 删除的审批(留痕)
     loginLogs: 'fi_login_logs',     // 登录日志(超管可见)
-    opLogs: 'fi_op_logs'            // 操作日志(每个用户都有)
+    opLogs: 'fi_op_logs',           // 操作日志(每个用户都有)
+    accounts: 'fi_accounts',        // 账户体系持久化 (成员编辑时同步)
+    chatMessages: 'fi_chat_messages', // 聊天消息记录
+    chatList: 'fi_chat_list',         // 聊天列表
+    chatPinned: 'fi_chat_pinned',     // 置顶聊天
+    chatMuted: 'fi_chat_muted',       // 静音聊天
+    registrations: 'fi_registrations' // 注册申请
 };
 
 /* =====================
@@ -142,6 +148,22 @@ FA.selectedTimezone = 'UTC+8';
 FA.selectedOffset = 8;
 
 /* =====================
+   标签页会话隔离
+   同一浏览器开多个标签登录不同账号时, 通过 URL #tab=<id> 绑定各自独立会话,
+   避免刷新 A 标签后误登录到 B 账号
+   ===================== */
+FA.getTabId = function() {
+    var m = location.hash.match(/[#&]tab=([^&]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    var id = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    var newHash = location.hash ? location.hash + '&tab=' + id : '#tab=' + id;
+    history.replaceState(null, '', location.pathname + location.search + newHash);
+    return id;
+};
+/* 当前标签的登录会话存储键 */
+FA.sessionKey = function() { return 'fi_session_' + FA.getTabId(); };
+
+/* =====================
    国际化 (i18n)
    ===================== */
 FA.i18n = {
@@ -150,11 +172,13 @@ FA.i18n = {
     passwordPlaceholder:  { zh: '密码',              en: 'Password',             ja: 'パスワード' },
     login:                { zh: '登录',              en: 'LOGIN',                ja: 'ログイン' },
     home:                 { zh: '首页',              en: 'Home',                 ja: 'ホーム' },
-    familyMembers:        { zh: '家庭成员',          en: 'Family Members',       ja: '家族メンバー' },
+    familyMembers:        { zh: '账户列表',          en: 'Account List',          ja: 'アカウントリスト' },
     devices:              { zh: '家庭设备',          en: 'Devices',              ja: 'デバイス' },
     photos:               { zh: '家庭相册',          en: 'Photos',               ja: 'アルバム' },
     calendar:             { zh: '家庭日历',          en: 'Calendar',             ja: 'カレンダー' },
     approvals:            { zh: '审核与报告',         en: 'Approvals',            ja: '承認' },
+    registrations:       { zh: '注册审核',          en: 'Registrations',        ja: '登録審査' },
+    chat:                 { zh: '通讯',              en: 'Chat',                 ja: 'チャット' },
     notifications:        { zh: '消息通知',          en: 'Notifications',        ja: '通知' },
     settings:             { zh: '系统设置',          en: 'Settings',             ja: '設定' },
     profile:              { zh: '个人信息',          en: 'Profile',              ja: 'プロフィール' },
@@ -183,8 +207,20 @@ FA.t = function(key) {
 FA.setLanguage = function(lang) {
     FA.currentLang = lang;
     localStorage.setItem('fi_language', lang);
-    // Reload to apply changes
     location.reload();
+};
+
+/* 将 i18n 翻译应用到 DOM 元素 (data-i18n 属性) */
+FA.applyLanguage = function() {
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        var key = el.dataset.i18n;
+        var text = FA.t(key);
+        if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
+            el.placeholder = text;
+        } else {
+            el.textContent = text;
+        }
+    });
 };
 
 /* =====================
@@ -228,11 +264,19 @@ FA.formatTimeCN = function(d) {
 FA.sendWindowsNotification = function(title, body) {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
-        new Notification(title, { body: body, icon: '/favicon.ico' });
+        var notif = new Notification(title, { body: body, icon: '/favicon.ico' });
+        notif.onclick = function() {
+            window.focus();
+            notif.close();
+        };
     } else if (Notification.permission !== 'denied') {
         Notification.requestPermission().then(function(permission) {
             if (permission === 'granted') {
-                new Notification(title, { body: body, icon: '/favicon.ico' });
+                var n = new Notification(title, { body: body, icon: '/favicon.ico' });
+                n.onclick = function() {
+                    window.focus();
+                    n.close();
+                };
             }
         });
     }
