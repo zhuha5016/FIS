@@ -12,6 +12,15 @@ FA.App = {
         /* 初始化数据系统 */
         FA.Data.init();
 
+        /* 初始化 GitHub 云同步 (挂钩 saveData, 已配置则自动拉取) */
+        if (FA.Sync && FA.Sync.init) FA.Sync.init();
+
+        /* 应用语言翻译 */
+        FA.applyLanguage();
+
+        /* 初始化聊天模块 */
+        if (FA.Chat && FA.Chat.init) FA.Chat.init();
+
         /* 初始化认证界面 */
         FA.Auth.init();
 
