@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T13:21:51.161Z",
+  "updatedAt": "2026-07-13T13:22:38.402Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -819,6 +819,11 @@
         "name": "朱能",
         "idcard": "350426197707140013",
         "time": "2026-07-13T01:56:48.391Z"
+      },
+      "huguili": {
+        "name": "胡桂丽",
+        "idcard": "370521198003282023",
+        "time": "2026-07-13T13:22:35.394Z"
       }
     },
     "fi_op_logs": [
@@ -1246,7 +1251,9 @@
         "gender": "女",
         "email": "",
         "address": "兴隆路673",
-        "idcard": ""
+        "idcard": "",
+        "verified": true,
+        "realName": "胡桂丽"
       },
       {
         "name": "Renmin Zhu",
