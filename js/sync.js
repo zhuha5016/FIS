@@ -14,7 +14,8 @@ FA.Sync = {
         repo: '',                               // 仓库名 (如 FIS)
         path: 'data/family-data.json',          // 数据文件路径
         branch: 'main',                         // 分支名
-        token: ''                               // Personal Access Token (仅超管可见)
+        token: '',                              // Personal Access Token (仅超管可见)
+        excludePhotos: true                     // 排除照片 base64 (GitHub 单文件 1MB 限制)
     },
 
     /* --------------- 运行时状态 --------------- */
@@ -60,6 +61,63 @@ FA.Sync = {
         return !!(this.config.owner && this.config.repo && this.config.token);
     },
 
+    /* 解析 GitHub 错误响应, 返回可读信息 (含 GitHub 原始 message) */
+    _extractError: function(res) {
+        var self = this;
+        return res.text().then(function(text) {
+            var msg = 'GitHub API 错误 ' + res.status;
+            try {
+                var j = JSON.parse(text);
+                if (j && j.message) {
+                    msg += ': ' + j.message;
+                    if (j.message.indexOf('size limit') !== -1 || j.message.indexOf('exceeds') !== -1) {
+                        msg += '（数据超过 GitHub 单文件 1MB 限制，建议排除照片后重试）';
+                    } else if (j.message.indexOf('Bad credentials') !== -1) {
+                        msg += '（Token 无效或已过期）';
+                    } else if (j.message.indexOf('Resource not accessible') !== -1) {
+                        msg += '（Token 无权限，检查细粒度 Token 的仓库访问与 Contents 读写权限）';
+                    } else if (j.message.indexOf('Not Found') !== -1) {
+                        msg += '（仓库/文件不存在或无权限，检查 owner/repo/branch）';
+                    } else if (j.message.indexOf('branch') !== -1) {
+                        msg += '（分支不存在，检查 branch 配置）';
+                    }
+                }
+            } catch (e) {}
+            return msg;
+        });
+    },
+
+    /* 测试连接: 验证 Token 与仓库可访问性 */
+    testConnection: function() {
+        if (!this.isConfigured()) {
+            return FA.showToast('请先填写完整配置（owner / repo / token）', 'error');
+        }
+        var self = this;
+        var url = 'https://api.github.com/repos/' + encodeURIComponent(this.config.owner) + '/' +
+                  encodeURIComponent(this.config.repo);
+        FA.showToast('正在测试连接…', 'info');
+        fetch(url, {
+            headers: {
+                'Authorization': 'Bearer ' + this.config.token,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        }).then(function(res) {
+            if (res.status === 200) {
+                FA.showToast('✅ 连接成功：仓库可访问，Token 有效', 'success');
+            } else if (res.status === 401) {
+                FA.showToast('❌ Token 无效或已过期（401 Bad credentials）', 'error');
+            } else if (res.status === 403) {
+                FA.showToast('❌ Token 无权限访问该仓库（403，检查细粒度 Token 的仓库访问与 Contents 读写权限）', 'error');
+            } else if (res.status === 404) {
+                FA.showToast('❌ 仓库不存在或无权限（404，检查 owner/repo 是否正确）', 'error');
+            } else {
+                return self._extractError(res).then(function(m){ FA.showToast('❌ ' + m, 'error'); });
+            }
+        }).catch(function(err) {
+            FA.showToast('❌ 网络错误：' + err.message + '（可能是 CORS 或网络被拦截）', 'error');
+        });
+    },
+
     saveConfig: function(cfg) {
         this.config = Object.assign({}, this.config, cfg);
         FA.Data.saveData('fi_sync_config', this.config);
@@ -79,6 +137,7 @@ FA.Sync = {
             if (!key || key.indexOf('fi_') !== 0) continue;
             if (key.indexOf('fi_session_') === 0) continue;       // 会话隔离键
             if (this.EXCLUDE_KEYS.indexOf(key) !== -1) continue;  // 本地偏好
+            if (this.config.excludePhotos && key === 'fi_photos') continue;  // 照片 base64 体积大, 跳过避免 1MB 限制
             try {
                 data[key] = JSON.parse(localStorage.getItem(key));
             } catch (e) {
@@ -125,7 +184,7 @@ FA.Sync = {
 
         return fetch(url, {
             headers: {
-                'Authorization': 'token ' + this.config.token,
+                'Authorization': 'Bearer ' + this.config.token,
                 'Accept': 'application/vnd.github.v3+json'
             }
         }).then(function(res) {
@@ -135,7 +194,7 @@ FA.Sync = {
                 self.setStatus('idle');
                 return false;
             }
-            if (!res.ok) throw new Error('GitHub API 错误 ' + res.status);
+            if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
             return res.json();
         }).then(function(json) {
             if (!json || !json.content) { self.setStatus('idle'); return false; }
@@ -195,7 +254,7 @@ FA.Sync = {
         return fetch(url, {
             method: 'PUT',
             headers: {
-                'Authorization': 'token ' + this.config.token,
+                'Authorization': 'Bearer ' + this.config.token,
                 'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             },
@@ -205,7 +264,7 @@ FA.Sync = {
                 /* 冲突: 远程已被他人修改 -> 先拉取再重试 */
                 return self.pull().then(function() { return self._retryPush(payload); });
             }
-            if (!res.ok) throw new Error('GitHub API 错误 ' + res.status);
+            if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
             return res.json();
         }).then(function(json) {
             if (json && json.content && json.content.sha) self.remoteSha = json.content.sha;
@@ -215,6 +274,7 @@ FA.Sync = {
         }).catch(function(err) {
             self.setStatus('error', err.message);
             console.error('[Sync] 推送失败:', err);
+            if (FA.showToast) FA.showToast('☁️ 同步失败: ' + err.message, 'error');
             return false;
         });
     },
@@ -235,7 +295,7 @@ FA.Sync = {
         return fetch(url, {
             method: 'PUT',
             headers: {
-                'Authorization': 'token ' + this.config.token,
+                'Authorization': 'Bearer ' + this.config.token,
                 'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             },
@@ -246,7 +306,7 @@ FA.Sync = {
                 sha: this.remoteSha
             })
         }).then(function(res) {
-            if (!res.ok) throw new Error('重试失败 ' + res.status);
+            if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
             return res.json();
         }).then(function(json) {
             if (json && json.content && json.content.sha) self.remoteSha = json.content.sha;
@@ -343,8 +403,10 @@ FA.Sync = {
                 '<div class="modal-field"><label>分支</label><input id="syncBranch" value="' + FA._esc(cfg.branch || 'main') + '"></div>' +
                 '<div class="modal-field"><label>数据文件路径</label><input id="syncPath" value="' + FA._esc(cfg.path || 'data/family-data.json') + '"></div>' +
                 '<div class="modal-field"><label>Access Token</label><input id="syncToken" type="password" value="' + FA._esc(cfg.token || '') + '" placeholder="ghp_xxx 或 github_pat_xxx"></div>' +
-                '<div style="font-size:11px;color:#aaa;margin:6px 0 14px;line-height:1.5">Token 保存在本浏览器 localStorage, 仅用于读写该仓库的数据文件。建议创建仅限此仓库的细粒度 Token。</div>' +
+                '<div style="margin:6px 0 10px;font-size:12px;color:#555"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="syncExcludePhotos" ' + (cfg.excludePhotos === false ? '' : 'checked') + '> 排除照片 (base64, 避免 GitHub 单文件 1MB 限制)</label></div>' +
+                '<div style="font-size:11px;color:#aaa;margin:0 0 14px;line-height:1.5">Token 保存在本浏览器 localStorage, 仅用于读写该仓库的数据文件。建议创建仅限此仓库的细粒度 Token。</div>' +
                 '<div class="modal-actions">' +
+                    '<button class="btn-secondary" onclick="FA.Sync.testConnection()">测试连接</button>' +
                     '<button class="btn-secondary" onclick="FA.Sync.disableSync()">停用</button>' +
                     '<button class="btn-primary" onclick="FA.Sync.saveConfigFromModal()">保存并启用</button>' +
                 '</div>' +
@@ -359,7 +421,8 @@ FA.Sync = {
             repo:   document.getElementById('syncRepo').value.trim(),
             branch: document.getElementById('syncBranch').value.trim() || 'main',
             path:   document.getElementById('syncPath').value.trim() || 'data/family-data.json',
-            token:  document.getElementById('syncToken').value.trim()
+            token:  document.getElementById('syncToken').value.trim(),
+            excludePhotos: document.getElementById('syncExcludePhotos') ? document.getElementById('syncExcludePhotos').checked : true
         };
         if (!cfg.owner || !cfg.repo || !cfg.token) {
             return FA.showToast('请填写完整配置', 'error');
