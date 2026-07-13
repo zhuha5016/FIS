@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T13:22:58.418Z",
+  "updatedAt": "2026-07-13T13:23:19.501Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -828,6 +828,13 @@
     },
     "fi_op_logs": [
       {
+        "id": "op_1783948996496_5g4m",
+        "username": "zhuha",
+        "action": "edit_member",
+        "detail": "修改成员信息: TEST",
+        "time": "2026-07-13T13:23:16.496Z"
+      },
+      {
         "id": "op_1783948975417_uv9t",
         "username": "zhuha",
         "action": "edit_member",
@@ -1293,12 +1300,13 @@
         "nameCn": "TEST",
         "role": "user",
         "phone": "1",
-        "gender": "男",
+        "gender": "女",
         "username": "test",
         "email": "",
         "verified": false,
         "documents": [],
-        "bankCards": []
+        "bankCards": [],
+        "address": ""
       }
     ],
     "fi_devices": [
@@ -1587,7 +1595,7 @@
         "nameCn": "TEST",
         "phone": "1",
         "email": "",
-        "gender": "男",
+        "gender": "女",
         "securityQuestions": [
           {
             "question": "",
