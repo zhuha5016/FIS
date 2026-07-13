@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13T13:23:27.442Z",
+  "updatedAt": "2026-07-13T13:23:34.435Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -672,6 +672,14 @@
     "fi_todos": [],
     "fi_login_time": "2026/7/13 20:53:00",
     "fi_notifications": [
+      {
+        "id": 1783949011432,
+        "type": "info",
+        "title": "审批已撤回",
+        "content": "1 · APR-20260713-0003 已撤回",
+        "time": "2026-07-13T13:23:31.432Z",
+        "read": false
+      },
       {
         "id": 1783938138276,
         "type": "error",
@@ -1364,7 +1372,7 @@
         "description": "",
         "amount": 0,
         "applicant": "zhuha",
-        "status": "pending",
+        "status": "withdrawn",
         "stages": [
           {
             "name": "审批",
@@ -1374,7 +1382,7 @@
               "huguili",
               "luoaiyu"
             ],
-            "status": "pending",
+            "status": "withdrawn",
             "approverResults": [],
             "reason": "",
             "message": ""
@@ -1388,6 +1396,12 @@
             "user": "zhuha",
             "time": "2026-07-13T09:03:04.228Z",
             "detail": "审批创建 (1个环节)"
+          },
+          {
+            "action": "已撤回",
+            "user": "zhuha",
+            "time": "2026-07-13T13:23:31.432Z",
+            "detail": "审批已撤回"
           }
         ]
       },
