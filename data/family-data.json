@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T02:52:48.524Z",
+  "updatedAt": "2026-07-14T02:54:29.923Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -723,6 +723,14 @@
     "fi_todos": [],
     "fi_login_time": "2026/7/14 10:52:13",
     "fi_notifications": [
+      {
+        "id": 1783997666918,
+        "type": "error",
+        "title": "系统已离线",
+        "content": "请检查网络设置。VAL服务已同步为离线状态。",
+        "time": "2026-07-14T02:54:26.918Z",
+        "read": false
+      },
       {
         "id": 1783996910744,
         "type": "error",
