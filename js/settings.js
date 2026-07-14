@@ -171,7 +171,7 @@ FA.Settings = {
                             '<div class="settings-item-icon">☁️</div>' +
                             '<div class="settings-item-content"><h4>GitHub 云同步</h4><p>跨浏览器 / 设备共享数据</p></div>' +
                         '</div>' +
-                        '<button class="btn-primary" onclick="FA.Sync.showConfigModal()">配置</button>' +
+                        '<button class="btn-primary" onclick="FA.Sync.openConfigWithVerify()">配置</button>' +
                     '</div>' +
                     '<div id="syncStatusArea" style="padding:4px 0 14px;font-size:13px;color:#666;display:none">' +
                         '<span id="syncStatusIndicator"></span>' +
@@ -693,23 +693,27 @@ FA.Settings = {
     },
 
     /* =====================
-       GitHub 云同步状态 (超管可见)
+       GitHub 云同步状态 (所有用户可见)
+       每个用户都能看到同步状态与拉取/推送按钮, 修改配置需身份验证
        ===================== */
     renderSync: function() {
-        var isSuper = (FA.currentUser && FA.currentUser.role === 'superadmin');
+        /* 同步入口对所有用户开放 */
         var syncRow = document.getElementById('syncRow');
-        if (syncRow) syncRow.style.display = isSuper ? '' : 'none';
+        if (syncRow) syncRow.style.display = '';
 
         var area = document.getElementById('syncStatusArea');
         if (!area) return;
-        if (!isSuper || !FA.Sync.isConfigured()) { area.style.display = 'none'; return; }
-
         area.style.display = '';
+
         FA.Sync.setStatus(FA.Sync.status);
         var hint = document.getElementById('syncConfigHint');
         if (hint) {
-            hint.textContent = FA.Sync.config.owner + '/' + FA.Sync.config.repo + ' @ ' +
-                FA.Sync.config.branch + ' · ' + FA.Sync.config.path;
+            if (FA.Sync.isConfigured()) {
+                hint.textContent = FA.Sync.config.owner + '/' + FA.Sync.config.repo + ' @ ' +
+                    FA.Sync.config.branch + ' · ' + FA.Sync.config.path;
+            } else {
+                hint.textContent = '尚未配置云同步 · 点击「配置」进行设置 (需身份验证)';
+            }
         }
     },
 

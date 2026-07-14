@@ -29,6 +29,11 @@ FA.Data = {
             } catch (e) {
                 /* 解析失败, 保留默认账户 */
             }
+        } else {
+            /* 首次启动: 将内置默认账户持久化到 fi_accounts,
+               以便云同步把账号体系同步到 GitHub, 供 RDM 拉取账号 (Feature 3) */
+            FA.Data.saveAccounts();
+            if (FA.Sync && FA.Sync.schedulePush) FA.Sync.schedulePush();
         }
 
         FA.members = this.loadData(FA.DB_KEYS.members, [

@@ -95,6 +95,8 @@ FA._esc = function(str) {
         '.member-actions .contact-btn { color:#28a745; }',
         '.member-actions .contact-btn:hover { background:rgba(40,167,69,0.05); }',
         '.member-actions .edit-btn { color:#007AFF; }',
+        '.member-actions .pwd-btn { color:#FF9800; }',
+        '.member-actions .pwd-btn:hover { background:rgba(255,152,0,0.05); }',
         '',
         '/* 响应式 */',
         '@media(max-width:600px){ .edit-top-section{flex-direction:column;align-items:center} .edit-form-grid{grid-template-columns:1fr} .edit-field-row{flex-direction:column} .doc-row,.card-row{flex-wrap:wrap} .doc-row .doc-type,.card-row .card-bank,.card-row .card-org,.card-row .card-cvv{width:auto;flex:1} }'
@@ -200,11 +202,15 @@ FA.renderMembers = function() {
         var isSelf = FA.currentUser && FA.currentUser.username === m.username;
         var canEditThis = canEdit || isSelf;
 
-        /* 操作按钮: 联系(左) → 编辑(中) → 删除(右) */
+        /* 操作按钮: 联系(左) → 编辑(中) → 改密 → 删除(右) */
+        var canChangePwd = FA.currentUser && FA.currentUser.role === 'superadmin';
         var actions = '<div class="member-actions">';
         actions += '<button class="contact-btn" onclick="FA.showContactPopup(' + i + ', this)">联系</button>';
         if (canEditThis) {
             actions += '<button class="edit-btn" onclick="FA.editMember(' + i + ')">编辑</button>';
+        }
+        if (canChangePwd) {
+            actions += '<button class="pwd-btn" onclick="FA.changeMemberPassword(' + i + ')">改密</button>';
         }
         if (canDelete) {
             actions += '<button class="delete-btn" onclick="FA.deleteMember(' + i + ')">删除</button>';
@@ -887,6 +893,78 @@ FA.saveMemberNew = function() {
 
     FA.Data.addNotification('success', '成员添加', (nameCn || name) + ' 已添加到家庭成员');
     FA.showToast('成员添加成功', 'success');
+};
+
+/* =====================
+   超级管理员修改成员密码 (需敏感信息验证框)
+   ===================== */
+FA.changeMemberPassword = function(index) {
+    var m = FA.members[index];
+    if (!m) return;
+    if (!FA.currentUser || FA.currentUser.role !== 'superadmin') {
+        return FA.showToast('仅超级管理员可修改成员密码', 'error');
+    }
+
+    /* 验证使用超级管理员自身身份 (清空可能残留的目标用户) */
+    FA.Verify.clearTargetUser();
+
+    /* 弹出敏感信息验证框, 强制显示「超级管理员密码+VAL」方式 */
+    FA.Verify.requireVerify('修改成员「' + (m.nameCn || m.name) + '」的密码', 'normal', function(success) {
+        if (!success) return;
+        FA._openSetMemberPasswordModal(m.username, m.nameCn || m.name);
+    }, { requireAdmin: true });
+};
+
+FA._openSetMemberPasswordModal = function(username, nameCn) {
+    var modalId = 'set-member-password-modal';
+    var existing = document.getElementById(modalId);
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = modalId;
+    modal.style.zIndex = '3000';
+    modal.innerHTML =
+        '<div class="modal-content" style="max-width:420px">' +
+            '<button class="modal-close" onclick="FA.closeModal(\'' + modalId + '\')">&times;</button>' +
+            '<div class="modal-header"><h3>修改成员密码</h3></div>' +
+            '<p style="font-size:13px;color:#888;margin-bottom:14px">为「' + FA._esc(nameCn) + '」设置新密码（至少 6 位）</p>' +
+            '<div class="modal-field"><label>新密码</label><input id="newMemberPassword" type="password" placeholder="请输入新密码"></div>' +
+            '<div class="modal-field"><label>确认密码</label><input id="confirmMemberPassword" type="password" placeholder="请再次输入"></div>' +
+            '<div class="modal-actions">' +
+                '<button class="btn-secondary" onclick="FA.closeModal(\'' + modalId + '\')">取消</button>' +
+                '<button class="btn-primary" onclick="FA._doChangeMemberPassword(\'' + FA._esc(username) + '\')">确认</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(modal);
+    FA.showModal(modalId);
+};
+
+FA._doChangeMemberPassword = function(username) {
+    var acc = FA.accounts[username];
+    if (!acc) return FA.showToast('账户不存在', 'error');
+
+    var newPass = document.getElementById('newMemberPassword').value;
+    var confirmPass = document.getElementById('confirmMemberPassword').value;
+    if (!newPass) return FA.showToast('请输入新密码', 'error');
+    if (newPass !== confirmPass) return FA.showToast('两次密码不一致', 'error');
+    if (newPass.length < 6) return FA.showToast('密码长度至少 6 位', 'error');
+
+    acc.password = newPass;
+    FA.Data.saveAccounts();
+
+    /* 使该成员的当前活跃会话失效, 强制下次使用新密码登录 (单点登录) */
+    var sessions = FA.getActiveSessions();
+    if (sessions[username]) {
+        delete sessions[username];
+        FA.setActiveSessions(sessions);
+    }
+
+    FA.closeModal('set-member-password-modal');
+    FA.showToast('「' + (acc.nameCn || username) + '」的密码已修改', 'success');
+    if (FA.Data.recordOpLog) {
+        FA.Data.recordOpLog('admin_change_password', '超级管理员修改成员密码: ' + username);
+    }
 };
 
 /* =====================

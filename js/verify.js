@@ -1,6 +1,6 @@
 /* ======================================================================
    verify.js - 身份验证系统
-   5种验证方式: 手机号+VAL / 身份证号+VAL / 密码 / 密保问题+VAL / 超级管理员VAL
+   5种验证方式: 手机号+VAL / 身份证号+VAL / 密码+VAL / 密保问题+VAL / 超级管理员密码+VAL
    银行卡等高敏感信息: 密码+CVV
    10分钟会话保持
    身份证本地校验算法
@@ -73,8 +73,9 @@ FA.Verify = {
         localStorage.removeItem(FA.DB_KEYS.verifySession);
     },
 
-    /* 发起身份验证 */
-    requireVerify: function(purpose, level, callback) {
+    /* 发起身份验证
+       opts.requireAdmin: 强制显示「超级管理员密码+VAL」标签 (高权限操作, 如修改成员密码) */
+    requireVerify: function(purpose, level, callback, opts) {
         /* _forceReverify: 找回密码等场景强制重新验证, 不复用会话 */
         if (!this._forceReverify && this.isVerified(level)) {
             callback(true);
@@ -105,11 +106,14 @@ FA.Verify = {
         tabs.forEach(function(t) { t.style.display = ''; });
         methodAreas.forEach(function(a) { a.style.display = 'none'; });
 
-        /* 隐藏超级管理员VAL标签 (如果当前用户是superadmin) */
+        /* 超级管理员验证标签的显示逻辑
+           普通用户: 显示 (可作为升级/授权验证方式)
+           超级管理员: 默认隐藏 (已具备权限), 但高权限操作 (如修改成员密码) 通过 opts.requireAdmin 强制显示 */
         var adminTab = modal.querySelector('[data-method="adminval"]');
         if (adminTab) {
             /* FA.currentUser 在"找回密码"等未登录场景下为空, 需要防御性判断 */
-            adminTab.style.display = (FA.currentUser && FA.currentUser.role === 'superadmin') ? 'none' : '';
+            var showAdminTab = (FA.currentUser && FA.currentUser.role !== 'superadmin') || (opts && opts.requireAdmin);
+            adminTab.style.display = showAdminTab ? '' : 'none';
         }
 
         /* 隐藏银行卡方式 (非超管不显示 — 仅超管/特定操作需要) */
@@ -144,9 +148,9 @@ FA.Verify = {
             '<div class="auth-verify-methods" id="authVerifyTabs">' +
                 '<div class="auth-verify-tab active" data-method="phone">手机号+VAL</div>' +
                 '<div class="auth-verify-tab" data-method="idcard">身份证+VAL</div>' +
-                '<div class="auth-verify-tab" data-method="password">密码</div>' +
+                '<div class="auth-verify-tab" data-method="password">密码+VAL</div>' +
                 '<div class="auth-verify-tab" data-method="security">密保问题+VAL</div>' +
-                '<div class="auth-verify-tab" data-method="adminval">超级管理员VAL</div>' +
+                '<div class="auth-verify-tab" data-method="adminval">超级管理员密码+VAL</div>' +
             '</div>' +
 
             '<div class="auth-verify-method-area" id="methodPhone">' +
@@ -179,6 +183,16 @@ FA.Verify = {
 
             '<div class="auth-verify-method-area" id="methodPassword" style="display:none">' +
                 '<div class="modal-field"><label>登录密码</label><input id="verifyPassword" type="password" placeholder="请输入登录密码"></div>' +
+                '<div class="modal-field"><label>VAL Code</label>' +
+                    '<div class="val-input-row">' +
+                        '<input class="val-input-box pwd-val" maxlength="1" data-vi="0" inputmode="numeric">' +
+                        '<input class="val-input-box pwd-val" maxlength="1" data-vi="1" inputmode="numeric">' +
+                        '<input class="val-input-box pwd-val" maxlength="1" data-vi="2" inputmode="numeric">' +
+                        '<input class="val-input-box pwd-val" maxlength="1" data-vi="3" inputmode="numeric">' +
+                        '<input class="val-input-box pwd-val" maxlength="1" data-vi="4" inputmode="numeric">' +
+                        '<input class="val-input-box pwd-val" maxlength="1" data-vi="5" inputmode="numeric">' +
+                    '</div>' +
+                '</div>' +
             '</div>' +
 
             '<div class="auth-verify-method-area" id="methodSecurity" style="display:none">' +
@@ -211,7 +225,8 @@ FA.Verify = {
             '</div>' +
 
             '<div class="auth-verify-method-area" id="methodAdminVal" style="display:none">' +
-                '<p style="font-size:13px;color:#888;margin-bottom:14px">请联系超级管理员获取VAL验证码</p>' +
+                '<p style="font-size:13px;color:#888;margin-bottom:14px">请输入超级管理员的登录密码与VAL验证码</p>' +
+                '<div class="modal-field"><label>超级管理员密码</label><input id="verifyAdminPass" type="password" placeholder="请输入超级管理员密码"></div>' +
                 '<div class="modal-field">' +
                     '<label>超级管理员VAL Code</label>' +
                     '<div class="val-input-row">' +
@@ -281,6 +296,7 @@ FA.Verify = {
         /* VAL 输入框: 粘贴自动填充 / 无光标 / 连贯删除 / 长按清空 */
         this.setupVALInputs(modal.querySelectorAll('#methodPhone .val-input-box'));
         this.setupVALInputs(modal.querySelectorAll('#methodIdcard .val-input-box'));
+        this.setupVALInputs(modal.querySelectorAll('#methodPassword .val-input-box'));
         this.setupVALInputs(modal.querySelectorAll('#methodSecurity .val-input-box'));
         this.setupVALInputs(modal.querySelectorAll('#methodAdminVal .val-input-box'));
         this.setupVALInputs(modal.querySelectorAll('#authVerifyBankArea .val-input-box'));
@@ -476,7 +492,13 @@ FA.Verify = {
             }
         } else if (method === 'password') {
             var pass = document.getElementById('verifyPassword').value;
-            if (pass === acc.password) success = true;
+            var pwdValInputs = document.querySelectorAll('#methodPassword .val-input-box');
+            var pwdValStr = Array.from(pwdValInputs).map(function(b) { return b.value; }).join('');
+            /* VAL 使用「更改对象账户」的 VAL (verifyUsername) */
+            var expectedValPwd = await FA.generateVAL(FA.selectedOffset, verifyUsername);
+            if (pass === acc.password && pwdValStr === expectedValPwd) {
+                success = true;
+            }
         } else if (method === 'security') {
             var secQIndex = parseInt(document.getElementById('verifySecQ').value);
             var secAnswer = document.getElementById('verifySecAnswer').value.trim();
@@ -490,14 +512,17 @@ FA.Verify = {
                 success = true;
             }
         } else if (method === 'adminval') {
+            var adminPass = document.getElementById('verifyAdminPass').value;
             var adminValInputs = document.querySelectorAll('#methodAdminVal .val-input-box');
             var adminValStr = Array.from(adminValInputs).map(function(b) { return b.value; }).join('');
             /* 找到超级管理员 */
             var adminUsername = Object.keys(FA.accounts).find(function(k) { return FA.accounts[k].role === 'superadmin'; });
-            /* 使用超管用户名生成 VAL — 不同用户的 VAL 不同 */
-            var expectedVal4 = await FA.generateVAL(FA.selectedOffset, adminUsername);
-            if (adminValStr === expectedVal4) {
-                success = true;
+            if (adminUsername && FA.accounts[adminUsername]) {
+                /* 使用超管用户名生成 VAL — 不同用户的 VAL 不同 */
+                var expectedVal4 = await FA.generateVAL(FA.selectedOffset, adminUsername);
+                if (adminPass === FA.accounts[adminUsername].password && adminValStr === expectedVal4) {
+                    success = true;
+                }
             }
         }
 

@@ -261,8 +261,17 @@ FA.Sync = {
             if (result.changed && FA.renderAll) FA.renderAll();
             return result.changed;
         }).catch(function(err) {
-            self.setStatus('error', err.message);
-            console.error('[Sync] 拉取失败:', err);
+            var msg = (err && err.message) ? err.message : '';
+            var isNetworkError = (err && err.name === 'TypeError') ||
+                /failed to fetch|network|timeout|abort/i.test(msg);
+            if (isNetworkError) {
+                /* 临时网络抖动: 静默回到空闲, 5秒后自动重试, 不打扰用户 */
+                self.setStatus('idle');
+                console.warn('[Sync] 拉取临时失败 (网络), 稍后自动重试:', msg);
+            } else {
+                self.setStatus('error', msg);
+                console.error('[Sync] 拉取失败:', err);
+            }
             return false;
         }).finally(function() {
             self._syncInProgress = false;
@@ -331,9 +340,20 @@ FA.Sync = {
             self.lastSyncTime = new Date();
             return true;
         }).catch(function(err) {
-            self.setStatus('error', err.message);
-            console.error('[Sync] 推送失败:', err);
-            if (FA.showToast) FA.showToast('☁️ 同步失败: ' + err.message, 'error');
+            var msg = (err && err.message) ? err.message : '';
+            /* 区分临时网络抖动与真实配置/授权错误:
+               网络抖动 (Failed to fetch / TypeError) 仅更新状态指示, 不打扰用户 (每5秒自动重试)
+               真实错误 (GitHub API 错误 / 401 / 403 / 404 / 422) 才弹错误提示, 需要用户处理 */
+            var isNetworkError = (err && err.name === 'TypeError') ||
+                /failed to fetch|network|timeout|abort/i.test(msg);
+            if (isNetworkError) {
+                self.setStatus('idle');   // 静默: 仅回到空闲, 等待下次自动重试
+                console.warn('[Sync] 推送临时失败 (网络), 稍后自动重试:', msg);
+            } else {
+                self.setStatus('error', msg);
+                console.error('[Sync] 推送失败:', err);
+                if (FA.showToast) FA.showToast('☁️ 同步失败: ' + msg, 'error');
+            }
             return false;
         }).finally(function() {
             self._syncInProgress = false;
@@ -444,11 +464,20 @@ FA.Sync = {
     },
 
     /* ============================================================
-       配置弹窗 (仅超管可调用)
+       配置弹窗入口: 先弹身份验证框, 通过后再打开配置 (所有用户可用)
+       ============================================================ */
+    openConfigWithVerify: function() {
+        FA.Verify.requireVerify('修改云同步配置', 'normal', function(success) {
+            if (success) FA.Sync.showConfigModal();
+        });
+    },
+
+    /* ============================================================
+       配置弹窗 (身份验证通过后可调用, 所有用户可用)
        ============================================================ */
     showConfigModal: function() {
-        if (!FA.currentUser || FA.currentUser.role !== 'superadmin') {
-            return FA.showToast('仅超级管理员可配置云同步', 'error');
+        if (!FA.currentUser) {
+            return FA.showToast('请先登录', 'error');
         }
         var modalId = 'sync-config-modal';
         var old = document.getElementById(modalId);
