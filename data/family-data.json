@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T09:16:18.350Z",
+  "updatedAt": "2026-07-14T09:16:28.108Z",
   "data": {
     "fi_verify_session": {
       "time": 1784003781321,
@@ -1092,6 +1092,13 @@
     },
     "fi_op_logs": [
       {
+        "id": "op_1784020585106_itlo",
+        "username": "zhuha",
+        "action": "delete_member",
+        "detail": "删除成员: 朱淏",
+        "time": "2026-07-14T09:16:25.106Z"
+      },
+      {
         "id": "op_1784020569229_4fej",
         "username": "zhuha",
         "action": "login",
@@ -1635,16 +1642,6 @@
         "documents": [],
         "bankCards": [],
         "address": ""
-      },
-      {
-        "name": "TEST",
-        "nameCn": "朱淏",
-        "role": "user",
-        "phone": "1",
-        "username": "TEST",
-        "gender": "男",
-        "email": "TEST@family.local",
-        "verified": false
       }
     ],
     "fi_devices": [
@@ -1938,30 +1935,10 @@
             "answer": ""
           }
         ]
-      },
-      "TEST": {
-        "password": "111111",
-        "role": "user",
-        "name": "TEST",
-        "nameCn": "朱淏",
-        "phone": "1",
-        "email": "TEST@family.local",
-        "gender": "男",
-        "securityQuestions": [
-          {
-            "question": "",
-            "answer": ""
-          },
-          {
-            "question": "",
-            "answer": ""
-          },
-          {
-            "question": "",
-            "answer": ""
-          }
-        ]
       }
-    }
+    },
+    "fi_deleted_usernames": [
+      "TEST"
+    ]
   }
 }
