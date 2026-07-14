@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T08:35:17.732Z",
+  "updatedAt": "2026-07-14T09:16:13.126Z",
   "data": {
     "fi_verify_session": {
       "time": 1784003781321,
@@ -58,8 +58,8 @@
     "fi_todos": [],
     "fi_active_sessions": {
       "zhuha": {
-        "token": "smrk5rh0as12ov0ul",
-        "loginAt": 1784003737553,
+        "token": "smrkfs8etyhzd4dq4",
+        "loginAt": 1784020569218,
         "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
       }
     },
@@ -89,6 +89,17 @@
       }
     ],
     "fi_login_logs": [
+      {
+        "id": "ll_1784020569228_hemo",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录成功",
+        "time": "2026-07-14T09:16:09.228Z",
+        "ip": "本地",
+        "location": "无法获取",
+        "browser": "Edge / Windows",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
+      },
       {
         "id": "ll_1784017674472_3puo",
         "username": "zhuha",
@@ -803,7 +814,7 @@
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb"
       }
     ],
-    "fi_login_time": "2026/7/14 12:41:16",
+    "fi_login_time": "2026/7/14 17:16:09",
     "fi_notifications": [
       {
         "id": 1783997666918,
@@ -1080,6 +1091,13 @@
       }
     },
     "fi_op_logs": [
+      {
+        "id": "op_1784020569229_4fej",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录系统",
+        "time": "2026-07-14T09:16:09.229Z"
+      },
       {
         "id": "op_1784003787676_ungb",
         "username": "zhuha",
