@@ -400,7 +400,12 @@ FA.saveLayout = function() {
     });
 
     FA.dashboardLayout = newLayout;
-    FA.Data.saveData(FA.DB_KEYS.layout, FA.dashboardLayout);
+    /* 按用户保存布局 */
+    if (FA.Data.saveUserLayout) {
+        FA.Data.saveUserLayout(newLayout);
+    } else {
+        FA.Data.saveData(FA.DB_KEYS.layout, FA.dashboardLayout);
+    }
 
     FA.exitLayoutEditMode();
     FA.showToast('布局已保存', 'success');

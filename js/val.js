@@ -7,20 +7,23 @@
 window.FA = window.FA || {};
 
 /**
- * 生成 VAL Code
+ * 生成 VAL Code (按用户区分)
  * @param {number} timezoneOffset - 时区偏移（小时值：0, 8, -5, 9, 1）
+ * @param {string} [username] - 用户名 (加入哈希种子, 同一分钟不同用户得到不同 VAL)
  * @returns {Promise<string>} 6位数字字符串
+ * 种子格式: <utcTimestamp>SALTn<offset>|<username>  与 RDM 网站完全一致
  */
-FA.generateVAL = async function(timezoneOffset) {
+FA.generateVAL = async function(timezoneOffset, username) {
     try {
         var now = new Date();
         var utcTimestamp = Math.floor(now.getTime() / 60000);
+        var user = username || '';
 
         var encoder = new TextEncoder();
         var hashes = await Promise.all([
-            crypto.subtle.digest('SHA-256', encoder.encode(utcTimestamp + 'SALT1' + timezoneOffset)),
-            crypto.subtle.digest('SHA-384', encoder.encode(utcTimestamp + 'SALT2' + timezoneOffset)),
-            crypto.subtle.digest('SHA-512', encoder.encode(utcTimestamp + 'SALT3' + timezoneOffset))
+            crypto.subtle.digest('SHA-256', encoder.encode(utcTimestamp + 'SALT1' + timezoneOffset + '|' + user)),
+            crypto.subtle.digest('SHA-384', encoder.encode(utcTimestamp + 'SALT2' + timezoneOffset + '|' + user)),
+            crypto.subtle.digest('SHA-512', encoder.encode(utcTimestamp + 'SALT3' + timezoneOffset + '|' + user))
         ]);
 
         var combined = new Uint8Array(

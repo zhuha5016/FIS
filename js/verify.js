@@ -1,6 +1,6 @@
 /* ======================================================================
    verify.js - 身份验证系统
-   5种验证方式: 手机号+VAL / 身份证号+VAL / 密码 / 密保问题+VAL / 最高管理员VAL
+   5种验证方式: 手机号+VAL / 身份证号+VAL / 密码 / 密保问题+VAL / 超级管理员VAL
    银行卡等高敏感信息: 密码+CVV
    10分钟会话保持
    身份证本地校验算法
@@ -11,6 +11,19 @@
 window.FA = window.FA || {};
 
 FA.Verify = {
+    /* 目标用户名: 当编辑他人信息时, 验证使用对方的安全信息 (超管VAL除外) */
+    _targetUsername: null,
+
+    /* 设置验证目标用户 */
+    setTargetUser: function(username) {
+        this._targetUsername = username || null;
+    },
+
+    /* 清除验证目标用户 */
+    clearTargetUser: function() {
+        this._targetUsername = null;
+    },
+
     /* 身份证号本地校验算法 */
     validateIDCard: function(id) {
         if (!/^\d{17}[\dXx]$/.test(id)) return false;
@@ -62,7 +75,8 @@ FA.Verify = {
 
     /* 发起身份验证 */
     requireVerify: function(purpose, level, callback) {
-        if (this.isVerified(level)) {
+        /* _forceReverify: 找回密码等场景强制重新验证, 不复用会话 */
+        if (!this._forceReverify && this.isVerified(level)) {
             callback(true);
             return;
         }
@@ -91,10 +105,11 @@ FA.Verify = {
         tabs.forEach(function(t) { t.style.display = ''; });
         methodAreas.forEach(function(a) { a.style.display = 'none'; });
 
-        /* 隐藏最高管理员VAL标签 (如果当前用户是superadmin) */
+        /* 隐藏超级管理员VAL标签 (如果当前用户是superadmin) */
         var adminTab = modal.querySelector('[data-method="adminval"]');
         if (adminTab) {
-            adminTab.style.display = (FA.currentUser.role === 'superadmin') ? 'none' : '';
+            /* FA.currentUser 在"找回密码"等未登录场景下为空, 需要防御性判断 */
+            adminTab.style.display = (FA.currentUser && FA.currentUser.role === 'superadmin') ? 'none' : '';
         }
 
         /* 隐藏银行卡方式 (非超管不显示 — 仅超管/特定操作需要) */
@@ -131,8 +146,7 @@ FA.Verify = {
                 '<div class="auth-verify-tab" data-method="idcard">身份证+VAL</div>' +
                 '<div class="auth-verify-tab" data-method="password">密码</div>' +
                 '<div class="auth-verify-tab" data-method="security">密保问题+VAL</div>' +
-                '<div class="auth-verify-tab" data-method="adminval">最高管理员VAL</div>' +
-                '<div class="auth-verify-tab" data-method="bank">银行卡+VAL</div>' +
+                '<div class="auth-verify-tab" data-method="adminval">超级管理员VAL</div>' +
             '</div>' +
 
             '<div class="auth-verify-method-area" id="methodPhone">' +
@@ -197,9 +211,9 @@ FA.Verify = {
             '</div>' +
 
             '<div class="auth-verify-method-area" id="methodAdminVal" style="display:none">' +
-                '<p style="font-size:13px;color:#888;margin-bottom:14px">请联系最高管理员获取VAL验证码</p>' +
+                '<p style="font-size:13px;color:#888;margin-bottom:14px">请联系超级管理员获取VAL验证码</p>' +
                 '<div class="modal-field">' +
-                    '<label>最高管理员VAL Code</label>' +
+                    '<label>超级管理员VAL Code</label>' +
                     '<div class="val-input-row">' +
                         '<input class="val-input-box admin-val" maxlength="1" data-vi="0" inputmode="numeric">' +
                         '<input class="val-input-box admin-val" maxlength="1" data-vi="1" inputmode="numeric">' +
@@ -225,6 +239,7 @@ FA.Verify = {
                     '</div>' +
                 '</div>' +
             '</div>' +
+            '<!-- bank tab removed: password entry is already covered by 密码 tab -->' +
 
             '<div class="auth-verify-remember">' +
                 '<input type="checkbox" id="authVerifyRemember">' +
@@ -276,8 +291,9 @@ FA.Verify = {
     /* 更新密保问题显示文本 */
     _updateSecQuestion: function() {
         var idx = parseInt(document.getElementById('verifySecQ').value);
-        var acc = FA.accounts[FA.currentUser.username];
-        var q = (acc.securityQuestions && acc.securityQuestions[idx] && acc.securityQuestions[idx].question)
+        var verifyUsername = this._targetUsername || FA.currentUser.username;
+        var acc = FA.accounts[verifyUsername];
+        var q = (acc && acc.securityQuestions && acc.securityQuestions[idx] && acc.securityQuestions[idx].question)
             ? acc.securityQuestions[idx].question
             : '未设置密保问题';
         var el = document.getElementById('verifySecQuestionText');
@@ -419,7 +435,11 @@ FA.Verify = {
     },
 
     doVerify: async function(level, callback) {
-        var acc = FA.accounts[FA.currentUser.username];
+        /* 当编辑他人信息时, 验证使用对方的安全信息 (超管VAL除外)
+           找回密码等未登录场景下 FA.currentUser 为空, 依赖 _targetUsername */
+        var verifyUsername = this._targetUsername || (FA.currentUser && FA.currentUser.username);
+        var acc = FA.accounts[verifyUsername];
+        if (!acc) { FA.showToast('账户不存在', 'error'); return; }
         var success = false;
         var remember = document.getElementById('authVerifyRemember').checked;
 
@@ -431,7 +451,7 @@ FA.Verify = {
             var bankPass = document.getElementById('verifyBankPass').value;
             var bankValInputs = document.querySelectorAll('#authVerifyBankArea .val-input-box');
             var bankValStr = Array.from(bankValInputs).map(function(b) { return b.value; }).join('');
-            var expectedBankVal = await FA.generateVAL(FA.selectedOffset);
+            var expectedBankVal = await FA.generateVAL(FA.selectedOffset, verifyUsername);
             if (bankPass === acc.password && bankValStr === expectedBankVal) {
                 success = true;
             }
@@ -439,7 +459,7 @@ FA.Verify = {
             var phone = document.getElementById('verifyPhone').value;
             var valInputs = document.querySelectorAll('#methodPhone .val-input-box');
             var valStr = Array.from(valInputs).map(function(b) { return b.value; }).join('');
-            var expectedVal = await FA.generateVAL(FA.selectedOffset);
+            var expectedVal = await FA.generateVAL(FA.selectedOffset, verifyUsername);
             if (phone === acc.phone.replace(/\*/g, '').replace(/\D/g, '').substring(0, 11) && valStr === expectedVal) {
                 success = true;
             }
@@ -450,7 +470,7 @@ FA.Verify = {
             var idcard = document.getElementById('verifyIdcard').value;
             var idcValInputs = document.querySelectorAll('#methodIdcard .val-input-box');
             var idcValStr = Array.from(idcValInputs).map(function(b) { return b.value; }).join('');
-            var expectedVal2 = await FA.generateVAL(FA.selectedOffset);
+            var expectedVal2 = await FA.generateVAL(FA.selectedOffset, verifyUsername);
             if (this.validateIDCard(idcard) && idcValStr === expectedVal2) {
                 success = true;
             }
@@ -462,7 +482,7 @@ FA.Verify = {
             var secAnswer = document.getElementById('verifySecAnswer').value.trim();
             var secValInputs = document.querySelectorAll('#methodSecurity .val-input-box');
             var secValStr = Array.from(secValInputs).map(function(b) { return b.value; }).join('');
-            var expectedVal3 = await FA.generateVAL(FA.selectedOffset);
+            var expectedVal3 = await FA.generateVAL(FA.selectedOffset, verifyUsername);
             if (acc.securityQuestions && acc.securityQuestions[secQIndex] &&
                 acc.securityQuestions[secQIndex].answer &&
                 acc.securityQuestions[secQIndex].answer.toLowerCase() === secAnswer.toLowerCase() &&
@@ -472,10 +492,10 @@ FA.Verify = {
         } else if (method === 'adminval') {
             var adminValInputs = document.querySelectorAll('#methodAdminVal .val-input-box');
             var adminValStr = Array.from(adminValInputs).map(function(b) { return b.value; }).join('');
-            /* 找到最高管理员 */
+            /* 找到超级管理员 */
             var adminUsername = Object.keys(FA.accounts).find(function(k) { return FA.accounts[k].role === 'superadmin'; });
-            /* 使用相同 offset 生成 VAL (VAL 基于时间，同一 offset 下所有人相同) */
-            var expectedVal4 = await FA.generateVAL(FA.selectedOffset);
+            /* 使用超管用户名生成 VAL — 不同用户的 VAL 不同 */
+            var expectedVal4 = await FA.generateVAL(FA.selectedOffset, adminUsername);
             if (adminValStr === expectedVal4) {
                 success = true;
             }
@@ -626,7 +646,8 @@ FA.Verify = {
             var idcard = document.getElementById('oldRnIdcard').value.trim();
             var rnValInputs = modal.querySelectorAll('.rn-val');
             var rnValStr = Array.from(rnValInputs).map(function(b) { return b.value; }).join('');
-            var expectedVal = await FA.generateVAL(FA.selectedOffset);
+            var rnUsername = self._targetUsername || FA.currentUser.username;
+            var expectedVal = await FA.generateVAL(FA.selectedOffset, rnUsername);
 
             if (name === oldVerify.name && idcard === oldVerify.idcard && rnValStr === expectedVal) {
                 self.showVerifyForm(modal, oldVerify.username);

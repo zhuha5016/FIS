@@ -33,6 +33,9 @@ FA.Auth = {
         this.setupLoginButton();
         this.setupUserPopup();
         this.setupForgotPassword();
+
+        /* 启动单点登录监听: storage 事件 + 定时轮询 */
+        this._startSingleSignOnMonitor();
     },
 
     /* 小眼睛: 按下显示, 松开隐藏 */
@@ -164,7 +167,7 @@ FA.Auth = {
             }
 
             try {
-                var expectedVal = await FA.generateVAL(FA.selectedOffset);
+                var expectedVal = await FA.generateVAL(FA.selectedOffset, loginUsername);
                 var inputVal = self.getVALInput();
                 if (inputVal.length !== 6 || inputVal !== expectedVal) {
                     self.clearVAL();
@@ -175,6 +178,9 @@ FA.Auth = {
                     return;
                 }
                 self.setButtonState('success', '认证成功 ✔️');
+                /* 生成会话 token, 保存到当前标签会话 */
+                self._sessionToken = FA.generateSessionToken();
+                FA.saveSessionInfo({ username: loginUsername, token: self._sessionToken, loginAt: Date.now() });
                 setTimeout(function() { self.enterMainSystem(loginUsername); }, 1000);
             } catch (e) {
                 self.triggerError('VAL 服务异常');
@@ -295,8 +301,14 @@ FA.Auth = {
 
         // Step 2: 开始身份验证
         document.getElementById('forgotVerifyBtn').onclick = function() {
+            /* 未登录场景: 明确指定验证对象为找回密码的用户, doVerify 依赖此值 */
+            FA.Verify._targetUsername = self._forgotUsername;
+            /* 强制要求重新验证 (清除任何残留的验证会话) */
+            FA.Verify._forceReverify = true;
             /* 保持 forgot modal 打开, verify modal 直接显示在 body 上 (z-index 更高) */
             FA.Verify.requireVerify('找回密码身份验证', 'normal', function(success) {
+                FA.Verify._targetUsername = null;
+                FA.Verify._forceReverify = false;
                 if (success) {
                     /* 验证通过: 关闭 verify, 跳到 step3 */
                     self._goForgotStep(3);
@@ -363,12 +375,24 @@ FA.Auth = {
             loginTime: new Date().toLocaleString('zh-CN')
         };
 
-        localStorage.setItem('fi_session', username);
+        /* 确保 URL 保留 tab 后缀, 刷新后可恢复会话 */
+        FA.getTabId();
+
         localStorage.setItem('fi_login_time', FA.currentUser.loginTime);
+
+        /* 注册为当前账号的活跃会话, 触发单点登录同步 */
+        if (self._sessionToken) {
+            FA.saveSessionInfo({ username: username, token: self._sessionToken, loginAt: Date.now() });
+            FA.registerActiveSession(username, self._sessionToken);
+            if (FA.Sync && FA.Sync.schedulePush) FA.Sync.schedulePush();
+        }
 
         document.getElementById('loginCard').style.display = 'none';
         document.body.classList.add('main-active');
         document.getElementById('mainContainer').style.display = 'block';
+
+        /* 加载当前用户的首页布局 */
+        if (FA.Data.loadUserLayout) FA.Data.loadUserLayout();
 
         this.updateUserUI();
         FA.applyPermissions();
@@ -409,6 +433,19 @@ FA.Auth = {
         profileRole.textContent = FA.getRoleName(u.role);
         roleBadge.className = 'role-badge ' + FA.getRoleClass(u.role);
         profileRole.className = 'role-badge ' + FA.getRoleClass(u.role);
+
+        /* 注册审核菜单: 仅超管可见 */
+        var regMenuItem = document.getElementById('registrationMenuItem');
+        if (regMenuItem) {
+            regMenuItem.style.display = (u.role === 'superadmin') ? '' : 'none';
+        }
+        /* 注册审核徽章 */
+        var regBadge = document.getElementById('regBadge');
+        if (regBadge && FA.Registration && FA.Registration.getPendingCount) {
+            var pending = FA.Registration.getPendingCount();
+            regBadge.textContent = pending;
+            regBadge.style.display = pending > 0 ? '' : 'none';
+        }
     },
 
     /* 用户浮窗 (微信风格) */
@@ -480,14 +517,19 @@ FA.Auth = {
         if (FA.Data.recordOpLog) {
             FA.Data.recordOpLog('switch_user', '切换用户: ' + username);
         }
-        localStorage.setItem('fi_session', username);
+        /* 为新用户生成独立会话并注册活跃状态 */
+        var token = FA.generateSessionToken();
+        FA.saveSessionInfo({ username: username, token: token, loginAt: Date.now() });
+        FA.registerActiveSession(username, token);
         localStorage.removeItem('fi_verify_session');
+        if (FA.Sync && FA.Sync.schedulePush) FA.Sync.schedulePush();
         location.reload();
     },
 
     /* 退出登录 */
     logout: function() {
         if (!confirm('确定要退出登录吗？')) return;
+        var username = FA.currentUser && FA.currentUser.username;
         if (FA.currentUser) {
             if (FA.Data.recordLoginLog) {
                 FA.Data.recordLoginLog(FA.currentUser.username, 'logout', '用户退出登录');
@@ -495,21 +537,78 @@ FA.Auth = {
             if (FA.Data.recordOpLog) {
                 FA.Data.recordOpLog('logout', '用户退出系统');
             }
+            /* 清除本账号活跃会话 (仅当 token 匹配时, 避免误删新登录) */
+            var info = FA.getSessionInfo();
+            if (info && info.username && info.token) {
+                var map = FA.getActiveSessions();
+                var active = map[info.username];
+                if (active && active.token === info.token) {
+                    delete map[info.username];
+                    FA.setActiveSessions(map);
+                    if (FA.Sync && FA.Sync.schedulePush) FA.Sync.schedulePush();
+                }
+            }
         }
-        localStorage.removeItem('fi_session');
+        localStorage.removeItem(FA.sessionKey());
         localStorage.removeItem('fi_login_time');
         localStorage.removeItem('fi_verify_session');
         document.body.classList.remove('main-active');
         location.reload();
     },
 
+    /* 单点登录检查: 当前账号若在其他地方登录, 本标签页应被顶掉 */
+    checkSingleSignOn: function() {
+        if (!FA.currentUser) return;
+        var info = FA.getSessionInfo();
+        if (!info || !info.username) return;
+        if (info.legacy) {
+            /* 兼容旧版纯字符串会话: 迁移并视为有效 */
+            var token = FA.generateSessionToken();
+            this._sessionToken = token;
+            FA.saveSessionInfo({ username: info.username, token: token, loginAt: Date.now() });
+            FA.registerActiveSession(info.username, token);
+            if (FA.Sync && FA.Sync.schedulePush) FA.Sync.schedulePush();
+            return;
+        }
+        if (!FA.validateActiveSession(info.username, info.token)) {
+            FA.showToast('您的账号已在其他地方登录，即将退出', 'error');
+            if (FA.Data.recordLoginLog) {
+                FA.Data.recordLoginLog(info.username, 'kicked', '被其他登录会话顶掉');
+            }
+            setTimeout(function() {
+                localStorage.removeItem(FA.sessionKey());
+                localStorage.removeItem('fi_login_time');
+                localStorage.removeItem('fi_verify_session');
+                location.reload();
+            }, 2000);
+        }
+    },
+
+    _startSingleSignOnMonitor: function() {
+        var self = this;
+        /* 监听其他标签页/窗口的登录事件 */
+        window.addEventListener('storage', function(e) {
+            if (e.key === FA.DB_KEYS.activeSessions) {
+                self.checkSingleSignOn();
+            }
+        });
+        /* 定时轮询: 5 秒一次, 与 API 刷新节奏一致 */
+        if (this._ssoInterval) clearInterval(this._ssoInterval);
+        this._ssoInterval = setInterval(function() { self.checkSingleSignOn(); }, 5000);
+    },
+
     /* 会话恢复 */
     restoreSession: function() {
-        var savedUser = localStorage.getItem('fi_session');
-        if (savedUser && FA.accounts[savedUser]) {
-            this.enterMainSystem(savedUser);
-            return true;
+        var info = FA.getSessionInfo();
+        if (!info || !info.username || !FA.accounts[info.username]) return false;
+        if (!info.legacy && !FA.validateActiveSession(info.username, info.token)) {
+            /* 活跃会话已失效, 清理残留 */
+            localStorage.removeItem(FA.sessionKey());
+            localStorage.removeItem('fi_login_time');
+            return false;
         }
-        return false;
+        this._sessionToken = info.token || null;
+        this.enterMainSystem(info.username);
+        return true;
     }
 };

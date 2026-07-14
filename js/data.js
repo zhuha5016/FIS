@@ -16,6 +16,21 @@ FA.Data = {
 
     /* 初始化所有数据 */
     init: function() {
+        /* 账户体系: 先加载 localStorage 中持久化的版本 (成员编辑时同步) */
+        var savedAccounts = localStorage.getItem(FA.DB_KEYS.accounts);
+        if (savedAccounts) {
+            try {
+                var parsed = JSON.parse(savedAccounts);
+                /* 合并: 确保新增的默认账户也存在 */
+                Object.keys(FA.accounts).forEach(function(key) {
+                    if (!parsed[key]) parsed[key] = FA.accounts[key];
+                });
+                FA.accounts = parsed;
+            } catch (e) {
+                /* 解析失败, 保留默认账户 */
+            }
+        }
+
         FA.members = this.loadData(FA.DB_KEYS.members, [
             { name: 'zhuha', nameCn: '朱哈', role: 'superadmin', phone: '138****0001', username: 'zhuha', gender: '男', email: 'zhuha@family.local', verified: true },
             { name: 'zhunengxin', nameCn: '朱能新', role: 'senior', phone: '139****0002', username: 'zhunengxin', gender: '男', email: 'zhunengxin@family.local', verified: false },
@@ -48,6 +63,7 @@ FA.Data = {
         ]);
 
         FA.approvals = this.loadData(FA.DB_KEYS.approvals, []);
+        /* 首页布局: 先加载默认, 登录后会被 loadUserLayout 覆盖 */
         FA.dashboardLayout = this.loadData(FA.DB_KEYS.layout, ['schedule', 'devices', 'members', 'notifications', 'todo']);
 
         /* 加载删除的审批(留痕) + 登录日志 + 操作日志 */
@@ -55,11 +71,43 @@ FA.Data = {
         FA.loginLogs = this.loadData(FA.DB_KEYS.loginLogs, []);
         FA.opLogs = this.loadData(FA.DB_KEYS.opLogs, []);
 
+        /* 加载聊天数据 */
+        FA.Chat.chatList = this.loadData(FA.DB_KEYS.chatList, []);
+        FA.Chat.messages = this.loadData(FA.DB_KEYS.chatMessages, {});
+        FA.Chat.pinnedUsers = this.loadData(FA.DB_KEYS.chatPinned, []);
+        FA.Chat.mutedUsers = this.loadData(FA.DB_KEYS.chatMuted, []);
+
+        /* 加载注册申请 */
+        FA.registrations = this.loadData(FA.DB_KEYS.registrations, []);
+
         /* 加载语言偏好 */
         FA.currentLang = localStorage.getItem('fi_language') || 'zh';
 
         /* 启动网络状态监控 */
         if (FA.initNetworkMonitor) FA.initNetworkMonitor();
+    },
+
+    /* =====================
+       按用户加载首页布局
+       每个用户有独立的卡片排列顺序, 存储在 fi_dashboard_layout_<username>
+       ===================== */
+    loadUserLayout: function() {
+        if (!FA.currentUser) return;
+        var key = 'fi_dashboard_layout_' + FA.currentUser.username;
+        FA.dashboardLayout = FA.Data.loadData(key, ['schedule', 'devices', 'members', 'notifications', 'todo']);
+        if (FA.applyLayoutOrder) FA.applyLayoutOrder();
+    },
+
+    /* 按用户保存首页布局 */
+    saveUserLayout: function(layout) {
+        if (!FA.currentUser) return;
+        var key = 'fi_dashboard_layout_' + FA.currentUser.username;
+        FA.Data.saveData(key, layout);
+    },
+
+    /* 持久化账户体系到 localStorage (成员编辑后同步) */
+    saveAccounts: function() {
+        FA.Data.saveData(FA.DB_KEYS.accounts, FA.accounts);
     },
 
     /* 导出数据 */
@@ -218,21 +266,79 @@ FA.Data = {
 
     /* =====================
        登录日志 (超管可见)
+       含 IP / 地理位置 / 浏览器信息
        ===================== */
     recordLoginLog: function(username, action, detail) {
         FA.loginLogs = FA.Data.loadData(FA.DB_KEYS.loginLogs, []);
-        FA.loginLogs.unshift({
+
+        /* 浏览器检测 */
+        var browser = FA.Data._detectBrowser();
+
+        var log = {
             id: 'll_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
             username: username,
             action: action,   // 'login' / 'logout' / 'switch' / 'failed'
             detail: detail,
             time: new Date().toISOString(),
-            ip: '本地',     // 纯前端, 无后端
-            userAgent: navigator.userAgent.substring(0, 50)
-        });
+            ip: '获取中...',     // 异步获取
+            location: '获取中...',
+            browser: browser,
+            userAgent: navigator.userAgent.substring(0, 120)
+        };
+
+        FA.loginLogs.unshift(log);
+
         /* 限制 200 条 */
         if (FA.loginLogs.length > 200) FA.loginLogs = FA.loginLogs.slice(0, 200);
         FA.Data.saveData(FA.DB_KEYS.loginLogs, FA.loginLogs);
+
+        /* 异步获取 IP 和地理位置 */
+        FA.Data._fetchIpLocation(log.id);
+    },
+
+    /* 浏览器检测 */
+    _detectBrowser: function() {
+        var ua = navigator.userAgent;
+        var browser = 'Unknown';
+        if (/Edg\//.test(ua)) browser = 'Edge';
+        else if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) browser = 'Chrome';
+        else if (/Firefox\//.test(ua)) browser = 'Firefox';
+        else if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) browser = 'Safari';
+        else if (/MSIE|Trident/.test(ua)) browser = 'IE';
+
+        var os = 'Unknown';
+        if (/Windows/.test(ua)) os = 'Windows';
+        else if (/Mac OS X/.test(ua)) os = 'macOS';
+        else if (/Android/.test(ua)) os = 'Android';
+        else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+        else if (/Linux/.test(ua)) os = 'Linux';
+
+        return browser + ' / ' + os;
+    },
+
+    /* 异步获取 IP 和地理位置 */
+    _fetchIpLocation: function(logId) {
+        /* 使用 ipapi.co 免费接口获取 IP 和位置 */
+        fetch('https://ipapi.co/json/')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data) return;
+                var log = FA.loginLogs.find(function(l) { return l.id === logId; });
+                if (!log) return;
+                log.ip = data.ip || '未知';
+                log.location = (data.city || '') + (data.city && data.country_name ? ', ' : '') + (data.country_name || '');
+                if (!log.location) log.location = '未知';
+                FA.Data.saveData(FA.DB_KEYS.loginLogs, FA.loginLogs);
+            })
+            .catch(function() {
+                /* 获取失败, 标记为本地 */
+                var log = FA.loginLogs.find(function(l) { return l.id === logId; });
+                if (log) {
+                    log.ip = '本地';
+                    log.location = '无法获取';
+                    FA.Data.saveData(FA.DB_KEYS.loginLogs, FA.loginLogs);
+                }
+            });
     },
 
     /* =====================
@@ -264,6 +370,10 @@ FA.renderAll = function() {
     if (FA.renderPhotos) FA.renderPhotos();
     if (FA.renderNotifications) FA.renderNotifications();
     if (FA.renderApprovals) FA.renderApprovals();
+    if (FA.Chat && FA.Chat.render) FA.Chat.render();
+    if (FA.Registration && FA.Registration.getPendingCount && FA.currentUser && FA.currentUser.role === 'superadmin') {
+        if (FA.renderRegistrations) FA.renderRegistrations();
+    }
     if (FA.updateStats) FA.updateStats();
 };
 
@@ -301,6 +411,12 @@ FA.showSection = function(id, event) {
             break;
         case 'notifications-section':
             if (FA.renderNotifications) FA.renderNotifications();
+            break;
+        case 'chat-section':
+            if (FA.Chat && FA.Chat.render) FA.Chat.render();
+            break;
+        case 'registrations-section':
+            if (FA.renderRegistrations) FA.renderRegistrations();
             break;
         case 'settings-section':
             if (FA.Settings && FA.Settings.init) FA.Settings.init();

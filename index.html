@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>zhuha 家庭门户系统</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20260713c">
 </head>
 <body>
 
@@ -12,16 +12,16 @@
      登录界面
      ====================================================================== -->
 <div class="login-card" id="loginCard">
-    <h2>欢迎登陆</h2>
+    <h2 data-i18n="welcome">欢迎登陆</h2>
 
     <div class="input-group">
-        <input id="user" placeholder="Username or Phone" autocomplete="off">
+        <input id="user" placeholder="Username or Phone" data-i18n="usernamePlaceholder" autocomplete="off">
         <div class="underline"><div class="line-effect"></div></div>
     </div>
 
     <div class="input-group pass-group">
-        <input id="pass" type="password" placeholder="Password" autocomplete="off">
-        <a href="#" class="forgot-password-link" id="forgotPasswordLink">忘记密码</a>
+        <input id="pass" type="password" placeholder="Password" data-i18n="passwordPlaceholder" autocomplete="off">
+        <a href="#" class="forgot-password-link" id="forgotPasswordLink" data-i18n="forgotPassword">忘记密码</a>
         <button class="eye-btn" id="passEye" type="button" aria-label="显示密码">
             <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
         </button>
@@ -57,7 +57,8 @@
         <div class="underline"><div class="line-effect"></div></div>
     </div>
 
-    <button class="btn-login" id="loginBtn">LOGIN</button>
+    <button class="btn-login" id="loginBtn" data-i18n="login">LOGIN</button>
+    <button class="btn-register" onclick="FA.Registration.showForm()">📝 注册新账户</button>
 </div>
 
 <!-- ======================================================================
@@ -81,16 +82,18 @@
             </div>
         </div>
         <ul class="sidebar-menu">
-            <li><a href="#" class="active" onclick="FA.showSection('welcome-section', event)"><span class="menu-icon">🏠</span>首页</a></li>
-            <li><a href="#" onclick="FA.showSection('family-members', event)"><span class="menu-icon">👥</span>家庭成员</a></li>
-            <li><a href="#" onclick="FA.showSection('devices-section', event)"><span class="menu-icon">🔌</span>家庭设备</a></li>
-            <li><a href="#" onclick="FA.showSection('photos-section', event)"><span class="menu-icon">🖼️</span>家庭相册</a></li>
-            <li><a href="#" onclick="FA.showSection('calendar-section', event)"><span class="menu-icon">📅</span>家庭日历</a></li>
-            <li><a href="#" onclick="FA.showSection('approvals-section', event)"><span class="menu-icon">📋</span>审核与报告</a></li>
-            <li><a href="#" onclick="FA.showSection('notifications-section', event)"><span class="menu-icon">🔔</span>消息通知<span class="menu-badge" id="notifBadge" style="display:none">0</span></a></li>
-            <li><a href="#" onclick="FA.showSection('settings-section', event)"><span class="menu-icon">⚙️</span>系统设置</a></li>
+            <li><a href="#" class="active" onclick="FA.showSection('welcome-section', event)"><span class="menu-icon">🏠</span><span data-i18n="home">首页</span></a></li>
+            <li><a href="#" onclick="FA.showSection('family-members', event)"><span class="menu-icon">👥</span><span data-i18n="familyMembers">账户列表</span></a></li>
+            <li><a href="#" onclick="FA.showSection('chat-section', event)"><span class="menu-icon">💬</span><span data-i18n="chat">通讯</span></a></li>
+            <li><a href="#" onclick="FA.showSection('devices-section', event)"><span class="menu-icon">🔌</span><span data-i18n="devices">家庭设备</span></a></li>
+            <li><a href="#" onclick="FA.showSection('photos-section', event)"><span class="menu-icon">🖼️</span><span data-i18n="photos">家庭相册</span></a></li>
+            <li><a href="#" onclick="FA.showSection('calendar-section', event)"><span class="menu-icon">📅</span><span data-i18n="calendar">家庭日历</span></a></li>
+            <li><a href="#" onclick="FA.showSection('approvals-section', event)"><span class="menu-icon">📋</span><span data-i18n="approvals">审核与报告</span></a></li>
+            <li id="registrationMenuItem" style="display:none"><a href="#" onclick="FA.showSection('registrations-section', event)"><span class="menu-icon">📝</span>注册审核<span class="menu-badge" id="regBadge" style="display:none">0</span></a></li>
+            <li><a href="#" onclick="FA.showSection('notifications-section', event)"><span class="menu-icon">🔔</span><span data-i18n="notifications">消息通知</span><span class="menu-badge" id="notifBadge" style="display:none">0</span></a></li>
+            <li><a href="#" onclick="FA.showSection('settings-section', event)"><span class="menu-icon">⚙️</span><span data-i18n="settings">系统设置</span></a></li>
         </ul>
-        <button class="logout-btn" onclick="FA.Auth.logout()">🚪 退出登录</button>
+        <button class="logout-btn" onclick="FA.Auth.logout()">🚪 <span data-i18n="logout">退出登录</span></button>
     </div>
 
     <!-- 用户浮窗 (微信风格) -->
@@ -191,8 +194,8 @@
 
         <!-- ===== 家庭成员 ===== -->
         <div id="family-members" class="content-section">
-            <h1 class="page-title">家庭成员管理</h1>
-            <p class="page-subtitle">管理您的家庭成员信息</p>
+            <h1 class="page-title">账户列表</h1>
+            <p class="page-subtitle">管理家庭账户信息</p>
             <div class="toolbar">
                 <button class="toolbar-btn" onclick="FA.showModal('add-member-modal')" data-permission="addMember">＋ 添加成员</button>
             </div>
@@ -207,6 +210,18 @@
                 <button class="toolbar-btn" onclick="FA.showModal('add-device-modal')" data-permission="addDevice">＋ 添加设备</button>
             </div>
             <div class="device-grid" id="deviceGrid"></div>
+        </div>
+
+        <!-- ===== 通讯 ===== -->
+        <div id="chat-section" class="content-section">
+            <h1 class="page-title">通讯</h1>
+            <p class="page-subtitle">家庭即时通讯</p>
+            <div class="toolbar">
+                <button class="toolbar-btn" onclick="FA.Chat.exportChat()">📤 导出记录</button>
+                <button class="toolbar-btn" onclick="document.getElementById('chatImportFile').click()">📥 导入记录</button>
+                <input type="file" id="chatImportFile" accept=".json" style="display:none" onchange="FA.Chat.importChat(event)">
+            </div>
+            <div id="chatContent"></div>
         </div>
 
         <!-- ===== 家庭相册 ===== -->
@@ -258,6 +273,13 @@
             <div id="approvalsContent"></div>
         </div>
 
+        <!-- ===== 注册审核 ===== -->
+        <div id="registrations-section" class="content-section">
+            <h1 class="page-title">注册审核</h1>
+            <p class="page-subtitle">审核新用户注册申请</p>
+            <div id="registrationsContent"></div>
+        </div>
+
         <!-- ===== 消息通知 ===== -->
         <div id="notifications-section" class="content-section">
             <h1 class="page-title">消息通知</h1>
@@ -290,7 +312,7 @@
 <div id="add-member-modal" class="modal">
     <div class="modal-content">
         <button class="modal-close" onclick="FA.closeModal('add-member-modal')">&times;</button>
-        <div class="modal-header"><h3>添加家庭成员</h3></div>
+        <div class="modal-header"><h3>添加家庭账户</h3></div>
         <div class="modal-field"><label>姓名（英文）</label><input id="memberName" placeholder="请输入英文名"></div>
         <div class="modal-field"><label>姓名（中文）</label><input id="memberNameCn" placeholder="请输入中文名"></div>
         <div class="modal-field">
@@ -301,7 +323,7 @@
             </div>
         </div>
         <div class="modal-field"><label>手机号</label><input id="memberPhone" placeholder="请输入手机号"></div>
-        <div class="modal-field"><label>角色</label><select id="memberRole"><option value="user">普通用户</option><option value="senior">高级管理员</option><option value="superadmin">最高管理员</option></select></div>
+        <div class="modal-field"><label>角色</label><select id="memberRole"><option value="user">普通账户</option><option value="senior">高级管理员</option><option value="superadmin">超级管理员</option></select></div>
         <div class="modal-actions">
             <button class="btn-secondary" onclick="FA.closeModal('add-member-modal')">取消</button>
             <button class="btn-primary" onclick="FA.saveMemberNew()">添加</button>
@@ -359,18 +381,22 @@
 <!-- ======================================================================
      JavaScript 模块加载 (按依赖顺序)
      ====================================================================== -->
-<script src="js/config.js"></script>
-<script src="js/val.js"></script>
-<script src="js/data.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/verify.js"></script>
-<script src="js/members.js"></script>
-<script src="js/photos.js"></script>
-<script src="js/calendar.js"></script>
-<script src="js/approvals.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/settings.js"></script>
-<script src="js/app.js"></script>
+<!-- 注意: ?v= 版本号用于打破浏览器/ CDN 缓存。每次修改 JS/CSS 后部署, 请把版本号 +1 (如 20260713b → 20260713b), 否则用户浏览器可能继续加载旧文件 -->
+<script src="js/config.js?v=20260713c"></script>
+<script src="js/val.js?v=20260713c"></script>
+<script src="js/data.js?v=20260713c"></script>
+<script src="js/auth.js?v=20260713c"></script>
+<script src="js/verify.js?v=20260713c"></script>
+<script src="js/members.js?v=20260713c"></script>
+<script src="js/photos.js?v=20260713c"></script>
+<script src="js/calendar.js?v=20260713c"></script>
+<script src="js/approvals.js?v=20260713c"></script>
+<script src="js/chat.js?v=20260713c"></script>
+<script src="js/registrations.js?v=20260713c"></script>
+<script src="js/dashboard.js?v=20260713c"></script>
+<script src="js/settings.js?v=20260713c"></script>
+<script src="js/sync.js?v=20260713c"></script>
+<script src="js/app.js?v=20260713c"></script>
 
 </body>
 </html>
