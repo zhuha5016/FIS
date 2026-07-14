@@ -32,11 +32,11 @@ FA.Data = {
         }
 
         FA.members = this.loadData(FA.DB_KEYS.members, [
-            { name: 'zhuha', nameCn: '朱哈', role: 'superadmin', phone: '138****0001', username: 'zhuha', gender: '男', email: 'zhuha@family.local', verified: true },
-            { name: 'zhunengxin', nameCn: '朱能新', role: 'senior', phone: '139****0002', username: 'zhunengxin', gender: '男', email: 'zhunengxin@family.local', verified: false },
-            { name: 'huguili', nameCn: '胡桂丽', role: 'senior', phone: '137****0003', username: 'huguili', gender: '女', email: 'huguili@family.local', verified: false },
-            { name: 'zhurenmin', nameCn: '朱人民', role: 'user', phone: '136****0004', username: 'zhurenmin', gender: '男', email: 'zhurenmin@family.local', verified: false },
-            { name: 'luoaiyu', nameCn: '罗爱玉', role: 'user', phone: '135****0005', username: 'luoaiyu', gender: '女', email: 'luoaiyu@family.local', verified: false }
+            { name: 'zhuha', nameCn: '朱淏', role: 'superadmin', phone: '18250857696', username: 'zhuha', gender: '男', email: 'zhuha@family.local', verified: true },
+            { name: 'zhunengxin', nameCn: '朱能鑫', role: 'senior', phone: '13799287164', username: 'zhunengxin', gender: '男', email: 'zhunengxin@family.local', verified: false },
+            { name: 'huguili', nameCn: '胡桂丽', role: 'senior', phone: '13606086703', username: 'huguili', gender: '女', email: 'huguili@family.local', verified: false },
+            { name: 'zhurenmin', nameCn: '朱仁民', role: 'user', phone: '18950996905', username: 'zhurenmin', gender: '男', email: 'zhurenmin@family.local', verified: false },
+            { name: 'luoaiyu', nameCn: '罗爱玉', role: 'user', phone: '18950997559', username: 'luoaiyu', gender: '女', email: 'luoaiyu@family.local', verified: false }
         ]);
 
         FA.devices = this.loadData(FA.DB_KEYS.devices, [
