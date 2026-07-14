@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T09:50:41.457Z",
+  "updatedAt": "2026-07-14T10:00:51.285Z",
   "data": {
     "fi_verify_session": {
       "time": 1784003781321,
@@ -58,8 +58,8 @@
     "fi_todos": [],
     "fi_active_sessions": {
       "zhuha": {
-        "token": "smrkgzct7edmvad93",
-        "loginAt": 1784022581130,
+        "token": "smrkhdf64am8fvdox",
+        "loginAt": 1784023237376,
         "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
       }
     },
@@ -89,6 +89,17 @@
       }
     ],
     "fi_login_logs": [
+      {
+        "id": "ll_1784023237381_165s",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录成功",
+        "time": "2026-07-14T10:00:37.381Z",
+        "ip": "本地",
+        "location": "无法获取",
+        "browser": "Edge / Windows",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
+      },
       {
         "id": "ll_1784022581141_20oj",
         "username": "zhuha",
@@ -825,7 +836,7 @@
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb"
       }
     ],
-    "fi_login_time": "2026/7/14 17:49:41",
+    "fi_login_time": "2026/7/14 18:00:37",
     "fi_notifications": [
       {
         "id": 1783997666918,
@@ -972,14 +983,6 @@
         "read": true
       },
       {
-        "id": 1783933384229,
-        "type": "info",
-        "title": "新审批待处理",
-        "content": "1 · 单号 APR-20260713-0003 · 审批人: 胡桂丽",
-        "time": "2026-07-13T09:03:04.229Z",
-        "read": true
-      },
-      {
         "id": 1783933384228,
         "type": "info",
         "title": "新审批待处理",
@@ -1102,6 +1105,13 @@
       }
     },
     "fi_op_logs": [
+      {
+        "id": "op_1784023237381_xl38",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录系统",
+        "time": "2026-07-14T10:00:37.381Z"
+      },
       {
         "id": "op_1784022581141_j8o8",
         "username": "zhuha",
@@ -1957,6 +1967,10 @@
     },
     "fi_deleted_usernames": [
       "TEST"
-    ]
+    ],
+    "fi_sync_lock": {
+      "tabId": "tmrkhdkkkafdbbe",
+      "ts": 1784023251276
+    }
   }
 }
