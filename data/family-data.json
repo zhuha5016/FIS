@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T04:36:26.853Z",
+  "updatedAt": "2026-07-14T04:36:32.057Z",
   "data": {
     "fi_verify_session": {
       "time": 1784003781321,
@@ -1036,6 +1036,13 @@
     },
     "fi_op_logs": [
       {
+        "id": "op_1784003787676_ungb",
+        "username": "zhuha",
+        "action": "admin_change_password",
+        "detail": "超级管理员修改成员密码: test",
+        "time": "2026-07-14T04:36:27.676Z"
+      },
+      {
         "id": "op_1784003737563_play",
         "username": "zhuha",
         "action": "login",
@@ -1870,7 +1877,7 @@
         ]
       },
       "test": {
-        "password": "1",
+        "password": "222222",
         "role": "user",
         "name": "TEST",
         "nameCn": "TEST",
