@@ -2,9 +2,20 @@
    sync.js - GitHub 云同步模块
    将 localStorage 中的 fi_* 数据同步到 GitHub 仓库, 实现跨浏览器/设备共享
    方案: 单文件存储 (data/family-data.json), 通过 GitHub Contents API 读写
-   冲突策略: 后写入者胜 (last-write-wins), 409 冲突时内部自动重试(max 3次)
+
+   冲突策略 (根治版, v20260714e):
+   - 采用「合并式同步 (CRDT-lite)」, 彻底消除 409 死循环与新建/删除账号丢失
+   - 推送前先拉取最新远程, 用 reconcile() 把「本地改动」与「远程改动」合并:
+       * fi_accounts / fi_active_sessions: 按 username 并集 (两边同时新增都保留)
+       * fi_chat_messages: 按消息 id 合并 (不丢消息)
+       * 数组成员(成员/设备/日程/审批...): 按 id 并集, 两边同时新增都保留
+       * 已删除账号: 通过 fi_deleted_usernames 并集, 合并后从 fi_accounts 剔除
+   - 推送遇到 409/422 → 重新拉取最新再合并重试 (最多 5 次), 必然收敛
+   - 拉取绝不整体覆盖本地: 用 reconcile 让本地未推送改动存活, 仅补入远程增量
+
    错误策略: 所有临时错误(409/422/网络)完全静默; 仅配置类错误(401/403/404)弹窗
    频率策略: 推送防抖 10秒, 拉取 15秒, 连续失败自动降速到 60秒
+   并发控制: 跨标签锁 (fi_sync_lock), 避免同浏览器多标签同时推送造成 409 风暴
    ====================================================================== */
 
 window.FA = window.FA || {};
@@ -185,20 +196,28 @@ FA.Sync = {
        将远程数据应用到本地
        返回是否有变更
        ============================================================ */
+    /* 将远程数据合并应用到本地 (pull 用)
+       关键: 使用 reconcile 做「本地优先 + 远程增量合并」, 绝不整体覆盖本地未推送的改动 */
     applyRemoteData: function(remoteData) {
         if (!remoteData || !remoteData.data) return { changed: false, keys: [] };
+        var local = this.collectLocalData();
+        var merged = this.reconcile(local, remoteData.data);
+        return this._writeMerged(merged);
+    },
+
+    /* 把合并结果写回 localStorage, 并刷新内存对象
+       返回 { changed, keys } 供调用方做聊天刷新 / 单点登录检查 */
+    _writeMerged: function(merged) {
         var changed = false;
         var changedKeys = [];
-        Object.keys(remoteData.data).forEach(function(key) {
-            var value = remoteData.data[key];
-            var serialized = JSON.stringify(value);
+        Object.keys(merged).forEach(function(key) {
+            var serialized = JSON.stringify(merged[key]);
             if (localStorage.getItem(key) !== serialized) {
                 localStorage.setItem(key, serialized);
                 changed = true;
                 changedKeys.push(key);
             }
         });
-        /* 内存对象刷新 */
         if (changed && FA.Data && FA.Data.init) {
             FA.Data.init();
             if (FA.currentUser && FA.Data.loadUserLayout) FA.Data.loadUserLayout();
@@ -207,45 +226,21 @@ FA.Sync = {
     },
 
     /* ============================================================
-       从 GitHub 拉取
+       从 GitHub 拉取 (pull)
+       用 reconcile 合并, 不会覆盖本地未推送改动
        ============================================================ */
     pull: function() {
         var self = this;
         if (!this.isConfigured()) return Promise.resolve(false);
         if (this._syncInProgress) return Promise.resolve(false);
+        if (!this._acquireLock()) return Promise.resolve(false);  // 跨标签互斥, 避免并发
         this._syncInProgress = true;
-
         this.setStatus('syncing');
-        var url = 'https://api.github.com/repos/' + encodeURIComponent(this.config.owner) + '/' +
-                  encodeURIComponent(this.config.repo) + '/contents/' +
-                  encodeURIComponent(this.config.path) + '?ref=' + encodeURIComponent(this.config.branch);
 
-        return fetch(url, {
-            headers: {
-                'Authorization': 'Bearer ' + this._token,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        }).then(function(res) {
-            if (res.status === 404) {
-                /* 文件不存在: 当作空仓库, 触发一次推送初始化 */
-                self.remoteSha = null;
-                self.setStatus('idle');
-                return false;
-            }
-            if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
-            return res.json();
-        }).then(function(json) {
-            if (json === false) return false;
-            if (!json || !json.content) { self.setStatus('idle'); return false; }
-            /* base64 -> UTF-8 文本 */
-            var binary = atob(json.content.replace(/\s/g, ''));
-            var bytes = new Uint8Array(binary.length);
-            for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            var text = new TextDecoder('utf-8').decode(bytes);
-            var remoteData = JSON.parse(text);
-
-            self.remoteSha = json.sha;
-            var result = self.applyRemoteData(remoteData);
+        return this._getRemote().then(function(remote) {
+            if (!remote) { self.setStatus('idle'); return false; }
+            self.remoteSha = remote.sha;
+            var result = self.applyRemoteData(remote);
             self.setStatus('success');
             self.lastSyncTime = new Date();
 
@@ -285,33 +280,29 @@ FA.Sync = {
             return false;
         }).finally(function() {
             self._syncInProgress = false;
+            self._releaseLock();
         });
     },
 
     /* ============================================================
-       推送到 GitHub
-       策略: 409/422 冲突 → 内部自动重试(max 3次, 指数退避)
-             所有临时错误(冲突/网络) → 完全静默, 不弹窗
-             仅 401/403/404 等配置类错误 → 弹窗提醒用户
+       推送到 GitHub (push) — 合并式, 根治 409 与账号丢失
+       流程: 拉最新 → reconcile(本地,远程) → PUT 合并结果
+             409/422 → 重新拉取再合并重试 (最多 5 次), 必然收敛
        ============================================================ */
     push: function() {
         var self = this;
         if (!this.isConfigured()) return Promise.resolve(false);
-        if (this._syncInProgress) {
+        if (this._syncInProgress) { this._hasPendingPush = true; return Promise.resolve(false); }
+        if (!this._acquireLock()) {
+            /* 其他标签正在推送, 稍后重试 */
             this._hasPendingPush = true;
+            this.schedulePush();
             return Promise.resolve(false);
         }
         this._syncInProgress = true;
         this._hasPendingPush = false;
         this.setStatus('syncing');
-
-        var payload = {
-            version: 2,
-            updatedAt: new Date().toISOString(),
-            data: this.collectLocalData()
-        };
-
-        return self._doPushWithRetry(payload, 0).then(function(success) {
+        return this._pushLoop(0).then(function(success) {
             if (success) {
                 self._consecutiveFails = 0;
                 self._restorePullInterval();
@@ -332,8 +323,7 @@ FA.Sync = {
                - 401 Token失效 / 403 无权限 / 404 仓库不存在 → 弹窗, 需用户处理 */
             var isNetworkError = (err && err.name === 'TypeError') ||
                 /failed to fetch|network|timeout|abort/i.test(msg);
-            var isTransientConflict = /409|422|does not match|sha/i.test(msg);
-            if (isNetworkError || isTransientConflict) {
+            if (isNetworkError) {
                 self._consecutiveFails++;
                 self._slowDownIfNeeded();
                 self.setStatus('idle');
@@ -347,64 +337,69 @@ FA.Sync = {
             return false;
         }).finally(function() {
             self._syncInProgress = false;
+            self._releaseLock();
             if (self._hasPendingPush) self.schedulePush();
         });
     },
 
-    /* 内部: 带重试的推送 (max 3次, 指数退避 1s/2s/4s) */
-    _doPushWithRetry: function(payload, attempt) {
+    /* 推送重试循环: 每次都重新拉取最新, 合并后 PUT
+       409/422 → 重新拉取再合并重试 (最多 5 次), 必然收敛到一致状态 */
+    _pushLoop: function(attempt) {
         var self = this;
-        var maxRetries = 3;
+        var MAX = 5;
+        return self._getRemote().then(function(remote) {
+            var local = self.collectLocalData();
+            /* 合并: 本地改动优先, 同时补入远程独有增量 (根治覆盖/丢失) */
+            var merged = remote ? self.reconcile(local, remote.data) : local;
 
-        var jsonStr = JSON.stringify(payload, null, 2);
-        var bytes = new TextEncoder().encode(jsonStr);
-        var binary = '';
-        for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        var content = btoa(binary);
+            var jsonStr = JSON.stringify({ version: 2, updatedAt: new Date().toISOString(), data: merged }, null, 2);
+            var bytes = new TextEncoder().encode(jsonStr);
+            var binary = '';
+            for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+            var content = btoa(binary);
 
-        var url = 'https://api.github.com/repos/' + encodeURIComponent(this.config.owner) + '/' +
-                  encodeURIComponent(this.config.repo) + '/contents/' +
-                  encodeURIComponent(this.config.path);
+            var url = 'https://api.github.com/repos/' + encodeURIComponent(self.config.owner) + '/' +
+                      encodeURIComponent(self.config.repo) + '/contents/' +
+                      encodeURIComponent(self.config.path);
+            var body = {
+                message: '🔄 家庭数据同步 ' + new Date().toLocaleString('zh-CN'),
+                content: content,
+                branch: self.config.branch
+            };
+            if (remote && remote.sha) body.sha = remote.sha;
 
-        var body = {
-            message: '🔄 家庭数据同步 ' + new Date().toLocaleString('zh-CN'),
-            content: content,
-            branch: this.config.branch
-        };
-        if (this.remoteSha) body.sha = this.remoteSha;
-
-        return fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Authorization': 'Bearer ' + self._token,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        }).then(function(res) {
-            if (res.status === 409 || res.status === 422) {
-                /* SHA 冲突 / 文件状态异常: 先拉取最新 sha, 再重试 */
-                if (attempt < maxRetries) {
-                    return self._refreshSha().then(function() {
-                        var delay = Math.pow(2, attempt) * 1000; /* 1s, 2s, 4s */
-                        return new Promise(function(r) { setTimeout(r, delay); });
-                    }).then(function() {
-                        return self._doPushWithRetry(payload, attempt + 1);
+            return fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': 'Bearer ' + self._token,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            }).then(function(res) {
+                if (res.ok) {
+                    return res.json().then(function(j) {
+                        if (j && j.content && j.content.sha) self.remoteSha = j.content.sha;
+                        /* 把合并结果写回本地, 使本地与远程立即一致 (含对方新增) */
+                        self._writeMerged(merged);
+                        return true;
                     });
                 }
-                /* 重试次数耗尽: 静默放弃, 等下次 schedulePush */
-                return false;
-            }
-            if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
-            return res.json();
-        }).then(function(json) {
-            if (json && json.content && json.content.sha) self.remoteSha = json.content.sha;
-            return true;
+                if (res.status === 409 || res.status === 422) {
+                    /* SHA 冲突 / 文件状态异常: 重新拉取最新再合并重试 */
+                    if (attempt < MAX) {
+                        console.warn('[Sync] 推送冲突 (' + res.status + '), 重新拉取合并重试 ' + (attempt + 1) + '/' + MAX);
+                        return self._pushLoop(attempt + 1);
+                    }
+                    return false; /* 极端情况下放弃, 等下次 schedulePush */
+                }
+                return self._extractError(res).then(function(m){ throw new Error(m); });
+            });
         });
     },
 
-    /* 仅刷新 remoteSha (轻量 pull, 不 applyRemoteData) */
-    _refreshSha: function() {
+    /* 拉取远程文件 (返回 {sha, data} 或 null=文件不存在/404);  fatal 错误抛出 */
+    _getRemote: function() {
         var self = this;
         var url = 'https://api.github.com/repos/' + encodeURIComponent(this.config.owner) + '/' +
                   encodeURIComponent(this.config.repo) + '/contents/' +
@@ -415,22 +410,134 @@ FA.Sync = {
                 'Accept': 'application/vnd.github.v3+json'
             }
         }).then(function(res) {
-            if (!res.ok) return null;
+            if (res.status === 404) return null;
+            if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
             return res.json();
         }).then(function(json) {
-            if (json && json.sha) self.remoteSha = json.sha;
-            /* 同时 apply 远程数据 (保持本地最新) */
-            if (json && json.content) {
+            if (!json) return null;
+            if (!json.content) return { sha: json.sha || null, data: {} };
+            var binary = atob(json.content.replace(/\s/g, ''));
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            var text = new TextDecoder('utf-8').decode(bytes);
+            var remoteData = JSON.parse(text);
+            return { sha: json.sha, data: (remoteData && remoteData.data) ? remoteData.data : {} };
+        });
+    },
+
+    /* ============================================================
+       合并算法 (reconcile)
+       本地改动优先 (local-wins), 同时补入远程独有增量, 彻底消除覆盖与丢失
+       ============================================================ */
+    reconcile: function(local, remote) {
+        var out = {};
+        var self = this;
+        Object.keys(remote || {}).forEach(function(k) { out[k] = remote[k]; });
+        Object.keys(local || {}).forEach(function(k) {
+            out[k] = self.mergeKey(k, local[k], (remote || {})[k]);
+        });
+        /* 已删除账号: 从 fi_accounts 剔除 (跨设备同步删除) */
+        var del = out[FA.DB_KEYS.deletedUsernames] || [];
+        if (out[FA.DB_KEYS.accounts]) {
+            del.forEach(function(u) { if (u) delete out[FA.DB_KEYS.accounts][u]; });
+        }
+        return out;
+    },
+
+    mergeKey: function(key, L, R) {
+        if (key === FA.DB_KEYS.accounts) return this._unionObjects(L, R);
+        if (key === FA.DB_KEYS.activeSessions) return this._unionObjects(L, R);
+        if (key === FA.DB_KEYS.deletedUsernames) return this._unionArrays(L, R);
+        if (key === FA.DB_KEYS.chatMessages) return this._mergeChat(L, R);
+        if (this._isArrayKey(key)) return this._mergeArrayById(L, R);
+        /* 普通对象: 合并字段, 本地优先 */
+        if (L && R && typeof L === 'object' && typeof R === 'object' && !Array.isArray(L) && !Array.isArray(R)) {
+            return this._unionObjects(L, R);
+        }
+        /* 基础类型: 本地优先 */
+        return (L !== undefined && L !== null) ? L : R;
+    },
+
+    _isArrayKey: function(key) {
+        if (/^fi_dashboard_layout_/.test(key)) return true;
+        var arr = ['fi_members', 'fi_devices', 'fi_events', 'fi_todos', 'fi_notifications',
+                   'fi_approvals', 'fi_login_logs', 'fi_op_logs', 'fi_registrations', 'fi_albums'];
+        return arr.indexOf(key) !== -1;
+    },
+
+    /* 对象并集 (按 key): 以 L 为基准, 仅补入 R 独有 key (不覆盖 L 已有字段) */
+    _unionObjects: function(a, b) {
+        var out = {};
+        var src = a || {};
+        Object.keys(src).forEach(function(k) { out[k] = src[k]; });
+        src = b || {};
+        Object.keys(src).forEach(function(k) { if (out[k] === undefined) out[k] = src[k]; });
+        return out;
+    },
+
+    /* 数组并集 (按值去重, 用于 fi_deleted_usernames 等字符串数组) */
+    _unionArrays: function(a, b) {
+        var seen = {}; var out = [];
+        function add(v) { var k = (v == null) ? '∅' : String(v); if (!seen[k]) { seen[k] = true; out.push(v); } }
+        (a || []).forEach(add);
+        (b || []).forEach(add);
+        return out;
+    },
+
+    /* 数组合并 (按 id 去重): 本地优先, 远程独有增量补入 (两边同时新增都保留) */
+    _mergeArrayById: function(a, b) {
+        var seen = {}; var out = [];
+        function add(item) {
+            var k = (item && item.id != null) ? ('id:' + item.id) : ('j:' + JSON.stringify(item));
+            if (!seen[k]) { seen[k] = true; out.push(item); }
+        }
+        (a || []).forEach(add);   // 本地优先
+        (b || []).forEach(add);   // 远程增量补入
+        return out;
+    },
+
+    /* 聊天合并: 每个会话(user)内的消息按 id 去重合并 */
+    _mergeChat: function(L, R) {
+        var out = {};
+        var users = {};
+        Object.keys(L || {}).forEach(function(u){ users[u] = true; });
+        Object.keys(R || {}).forEach(function(u){ users[u] = true; });
+        var self = this;
+        Object.keys(users).forEach(function(u) {
+            out[u] = self._mergeArrayById(L ? L[u] : null, R ? R[u] : null);
+        });
+        return out;
+    },
+
+    /* ============================================================
+       跨标签推送锁 (同浏览器多标签互斥, 防 409 风暴)
+       基于 localStorage, 30 秒超时自动释放, 不阻塞其他设备(各设备独立 localStorage)
+       ============================================================ */
+    _acquireLock: function() {
+        try {
+            var myId = FA.getTabId();
+            var raw = localStorage.getItem('fi_sync_lock');
+            var now = Date.now();
+            if (raw) {
                 try {
-                    var binary = atob(json.content.replace(/\s/g, ''));
-                    var bytes = new Uint8Array(binary.length);
-                    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                    var text = new TextDecoder('utf-8').decode(bytes);
-                    var remoteData = JSON.parse(text);
-                    self.applyRemoteData(remoteData);
+                    var l = JSON.parse(raw);
+                    if (l.tabId === myId) { l.ts = now; localStorage.setItem('fi_sync_lock', JSON.stringify(l)); return true; }
+                    if (now - l.ts < 30000) return false; // 被其他标签持有且未超时
                 } catch (e) {}
             }
-        }).catch(function() { /* 静默: refreshSha 失败不影响主流程 */ });
+            localStorage.setItem('fi_sync_lock', JSON.stringify({ tabId: myId, ts: now }));
+            return true;
+        } catch (e) { return true; } // 异常时放行, 避免死锁
+    },
+
+    _releaseLock: function() {
+        try {
+            var raw = localStorage.getItem('fi_sync_lock');
+            if (raw) {
+                var l = JSON.parse(raw);
+                if (l.tabId === FA.getTabId()) localStorage.removeItem('fi_sync_lock');
+            }
+        } catch (e) {}
     },
 
     /* ============================================================
