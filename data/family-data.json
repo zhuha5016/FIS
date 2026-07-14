@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T00:49:46.224Z",
+  "updatedAt": "2026-07-14T00:50:09.502Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -22,10 +22,10 @@
         "email": "",
         "gender": "男",
         "reason": "1",
-        "status": "pending",
+        "status": "approved",
         "submittedAt": "2026-07-14T00:49:43.222Z",
-        "reviewedAt": null,
-        "reviewedBy": null,
+        "reviewedAt": "2026-07-14T00:50:03.254Z",
+        "reviewedBy": "zhuha",
         "rejectReason": ""
       }
     ],
@@ -37,6 +37,17 @@
       "todo"
     ],
     "fi_login_logs": [
+      {
+        "id": "ll_1783990196306_bmsm",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录成功",
+        "time": "2026-07-14T00:49:56.306Z",
+        "ip": "本地",
+        "location": "无法获取",
+        "browser": "Edge / Windows",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
+      },
       {
         "id": "ll_1783989354654_ertt",
         "username": "zhuha",
@@ -699,8 +710,16 @@
       ]
     },
     "fi_todos": [],
-    "fi_login_time": "2026/7/14 08:35:54",
+    "fi_login_time": "2026/7/14 08:49:56",
     "fi_notifications": [
+      {
+        "id": 1783990203254,
+        "type": "success",
+        "title": "注册申请已通过",
+        "content": "朱淏 (TEST) 的注册申请已通过，账户已创建",
+        "time": "2026-07-14T00:50:03.254Z",
+        "read": true
+      },
       {
         "id": 1783949297470,
         "type": "info",
@@ -880,6 +899,20 @@
       }
     },
     "fi_op_logs": [
+      {
+        "id": "op_1783990203254_65qa",
+        "username": "zhuha",
+        "action": "registration_approve",
+        "detail": "通过注册申请: TEST (朱淏)",
+        "time": "2026-07-14T00:50:03.254Z"
+      },
+      {
+        "id": "op_1783990196307_jkqh",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录系统",
+        "time": "2026-07-14T00:49:56.307Z"
+      },
       {
         "id": "op_1783989354654_5qu0",
         "username": "zhuha",
@@ -1368,6 +1401,16 @@
         "documents": [],
         "bankCards": [],
         "address": ""
+      },
+      {
+        "name": "TEST",
+        "nameCn": "朱淏",
+        "role": "user",
+        "phone": "1",
+        "username": "TEST",
+        "gender": "男",
+        "email": "TEST@family.local",
+        "verified": false
       }
     ],
     "fi_devices": [
@@ -1663,6 +1706,29 @@
         "phone": "1",
         "email": "",
         "gender": "女",
+        "securityQuestions": [
+          {
+            "question": "",
+            "answer": ""
+          },
+          {
+            "question": "",
+            "answer": ""
+          },
+          {
+            "question": "",
+            "answer": ""
+          }
+        ]
+      },
+      "TEST": {
+        "password": "111111",
+        "role": "user",
+        "name": "TEST",
+        "nameCn": "朱淏",
+        "phone": "1",
+        "email": "TEST@family.local",
+        "gender": "男",
         "securityQuestions": [
           {
             "question": "",
