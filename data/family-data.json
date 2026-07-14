@@ -1,7 +1,11 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T04:40:35.465Z",
+  "updatedAt": "2026-07-14T04:41:38.830Z",
   "data": {
+    "fi_verify_session": {
+      "time": 1784003781321,
+      "level": "normal"
+    },
     "fi_chat_pinned": [],
     "fi_events": [
       {
@@ -765,6 +769,7 @@
       ]
     },
     "fi_todos": [],
+    "fi_login_time": "2026/7/14 12:41:16",
     "fi_notifications": [
       {
         "id": 1783997666918,
