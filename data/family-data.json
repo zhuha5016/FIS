@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T10:01:32.712Z",
+  "updatedAt": "2026-07-14T10:02:34.436Z",
   "data": {
     "fi_verify_session": {
-      "time": 1784003781321,
+      "time": 1784023324177,
       "level": "normal"
     },
     "fi_registrations": [
@@ -1114,6 +1114,13 @@
     },
     "fi_op_logs": [
       {
+        "id": "op_1784023329350_tkov",
+        "username": "zhuha",
+        "action": "admin_change_password",
+        "detail": "超级管理员修改成员密码: 1",
+        "time": "2026-07-14T10:02:09.350Z"
+      },
+      {
         "id": "op_1784023237381_xl38",
         "username": "zhuha",
         "action": "login",
@@ -1847,7 +1854,7 @@
     ],
     "fi_accounts": {
       "1": {
-        "password": "1",
+        "password": "333333",
         "role": "senior",
         "name": "1",
         "nameCn": "1",
@@ -2012,8 +2019,8 @@
       "TEST"
     ],
     "fi_sync_lock": {
-      "tabId": "tmrkhe0037q85xt",
-      "ts": 1784023283059
+      "tabId": "tmrkhfl5m6ratui",
+      "ts": 1784023346557
     }
   }
 }
