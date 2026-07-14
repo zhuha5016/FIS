@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T10:03:35.337Z",
+  "updatedAt": "2026-07-14T10:28:22.426Z",
   "data": {
     "fi_verify_session": {
       "time": 1784023324177,
@@ -2004,8 +2004,8 @@
       "1"
     ],
     "fi_sync_lock": {
-      "tabId": "tmrkhgqtepttq5i",
-      "ts": 1784023410465
+      "tabId": "tmrkicm54j8i7p5",
+      "ts": 1784024902413
     }
   }
 }
