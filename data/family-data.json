@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T10:28:22.426Z",
+  "updatedAt": "2026-07-14T10:28:46.291Z",
   "data": {
     "fi_verify_session": {
       "time": 1784023324177,
@@ -838,6 +838,14 @@
     ],
     "fi_login_time": "2026/7/14 18:00:37",
     "fi_notifications": [
+      {
+        "id": 1784024913460,
+        "type": "success",
+        "title": "照片上传",
+        "content": "上传了 3 张照片到「Camera1」",
+        "time": "2026-07-14T10:28:33.460Z",
+        "read": false
+      },
       {
         "id": 1784023261789,
         "type": "success",
@@ -2005,7 +2013,7 @@
     ],
     "fi_sync_lock": {
       "tabId": "tmrkicm54j8i7p5",
-      "ts": 1784024902413
+      "ts": 1784024924458
     }
   }
 }
