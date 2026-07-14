@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T11:33:48.142Z",
+  "updatedAt": "2026-07-14T11:34:50.088Z",
   "data": {
     "fi_user_verified": {
       "zhuha": {
@@ -1606,7 +1606,7 @@
     ],
     "fi_sync_lock": {
       "tabId": "tmrkiip7iutsb0s",
-      "ts": 1784028816463
+      "ts": 1784028883465
     },
     "fi_accounts": {
       "zhuha": {
