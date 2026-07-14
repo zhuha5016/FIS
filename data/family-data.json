@@ -1,11 +1,7 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T04:39:35.068Z",
+  "updatedAt": "2026-07-14T04:40:35.465Z",
   "data": {
-    "fi_verify_session": {
-      "time": 1784003781321,
-      "level": "normal"
-    },
     "fi_chat_pinned": [],
     "fi_events": [
       {
@@ -41,6 +37,17 @@
       "todo"
     ],
     "fi_login_logs": [
+      {
+        "id": "ll_1784004032206_twik",
+        "username": "zhunengxin",
+        "action": "kicked",
+        "detail": "被其他登录会话顶掉",
+        "time": "2026-07-14T04:40:32.206Z",
+        "ip": "本地",
+        "location": "无法获取",
+        "browser": "Edge / Windows",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
+      },
       {
         "id": "ll_1784003737563_5ht4",
         "username": "zhuha",
@@ -758,7 +765,6 @@
       ]
     },
     "fi_todos": [],
-    "fi_login_time": "2026/7/14 12:35:37",
     "fi_notifications": [
       {
         "id": 1783997666918,
