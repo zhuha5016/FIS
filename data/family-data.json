@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T03:18:00.346Z",
+  "updatedAt": "2026-07-14T04:35:43.820Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -37,6 +37,17 @@
       "todo"
     ],
     "fi_login_logs": [
+      {
+        "id": "ll_1784003737563_5ht4",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录成功",
+        "time": "2026-07-14T04:35:37.563Z",
+        "ip": "本地",
+        "location": "无法获取",
+        "browser": "Edge / Windows",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150."
+      },
       {
         "id": "ll_1783998870427_g5ha",
         "username": "zhuha",
@@ -743,7 +754,7 @@
       ]
     },
     "fi_todos": [],
-    "fi_login_time": "2026/7/14 11:14:30",
+    "fi_login_time": "2026/7/14 12:35:37",
     "fi_notifications": [
       {
         "id": 1783997666918,
@@ -751,7 +762,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:54:26.918Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996910744,
@@ -759,7 +770,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:41:50.744Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996910743,
@@ -767,7 +778,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:41:50.743Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996910741,
@@ -775,7 +786,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:41:50.741Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996910737,
@@ -783,7 +794,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:41:50.737Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996066547,
@@ -791,7 +802,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:27:46.547Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996066546,
@@ -799,7 +810,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:27:46.546Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996066544,
@@ -807,7 +818,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:27:46.544Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996039894,
@@ -815,7 +826,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:27:19.894Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996039893,
@@ -823,7 +834,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:27:19.893Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783996039892,
@@ -831,7 +842,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T02:27:19.892Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783990203254,
@@ -1020,6 +1031,13 @@
       }
     },
     "fi_op_logs": [
+      {
+        "id": "op_1784003737563_play",
+        "username": "zhuha",
+        "action": "login",
+        "detail": "用户登录系统",
+        "time": "2026-07-14T04:35:37.563Z"
+      },
       {
         "id": "op_1783998870427_rj54",
         "username": "zhuha",
@@ -1443,8 +1461,8 @@
     ],
     "fi_active_sessions": {
       "zhuha": {
-        "token": "smrk2v5ifqu8qsp55",
-        "loginAt": 1783998870418,
+        "token": "smrk5rh0as12ov0ul",
+        "loginAt": 1784003737553,
         "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
       }
     },
