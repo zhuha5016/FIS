@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T01:01:08.691Z",
+  "updatedAt": "2026-07-14T02:27:50.475Z",
   "data": {
     "fi_chat_pinned": [],
     "fi_events": [
@@ -712,6 +712,54 @@
     "fi_todos": [],
     "fi_login_time": "2026/7/14 08:49:56",
     "fi_notifications": [
+      {
+        "id": 1783996066547,
+        "type": "error",
+        "title": "系统已离线",
+        "content": "请检查网络设置。VAL服务已同步为离线状态。",
+        "time": "2026-07-14T02:27:46.547Z",
+        "read": false
+      },
+      {
+        "id": 1783996066546,
+        "type": "error",
+        "title": "系统已离线",
+        "content": "请检查网络设置。VAL服务已同步为离线状态。",
+        "time": "2026-07-14T02:27:46.546Z",
+        "read": false
+      },
+      {
+        "id": 1783996066544,
+        "type": "error",
+        "title": "系统已离线",
+        "content": "请检查网络设置。VAL服务已同步为离线状态。",
+        "time": "2026-07-14T02:27:46.544Z",
+        "read": false
+      },
+      {
+        "id": 1783996039894,
+        "type": "error",
+        "title": "系统已离线",
+        "content": "请检查网络设置。VAL服务已同步为离线状态。",
+        "time": "2026-07-14T02:27:19.894Z",
+        "read": false
+      },
+      {
+        "id": 1783996039893,
+        "type": "error",
+        "title": "系统已离线",
+        "content": "请检查网络设置。VAL服务已同步为离线状态。",
+        "time": "2026-07-14T02:27:19.893Z",
+        "read": false
+      },
+      {
+        "id": 1783996039892,
+        "type": "error",
+        "title": "系统已离线",
+        "content": "请检查网络设置。VAL服务已同步为离线状态。",
+        "time": "2026-07-14T02:27:19.892Z",
+        "read": false
+      },
       {
         "id": 1783990203254,
         "type": "success",
