@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-14T10:00:51.285Z",
+  "updatedAt": "2026-07-14T10:01:32.712Z",
   "data": {
     "fi_verify_session": {
       "time": 1784003781321,
@@ -839,6 +839,14 @@
     "fi_login_time": "2026/7/14 18:00:37",
     "fi_notifications": [
       {
+        "id": 1784023261789,
+        "type": "success",
+        "title": "成员添加",
+        "content": "1 已添加到家庭成员",
+        "time": "2026-07-14T10:01:01.789Z",
+        "read": false
+      },
+      {
         "id": 1783997666918,
         "type": "error",
         "title": "系统已离线",
@@ -1670,6 +1678,18 @@
         "documents": [],
         "bankCards": [],
         "address": ""
+      },
+      {
+        "name": "1",
+        "nameCn": "1",
+        "role": "senior",
+        "phone": "1",
+        "gender": "男",
+        "username": "1",
+        "email": "",
+        "verified": false,
+        "documents": [],
+        "bankCards": []
       }
     ],
     "fi_devices": [
@@ -1826,6 +1846,29 @@
       }
     ],
     "fi_accounts": {
+      "1": {
+        "password": "1",
+        "role": "senior",
+        "name": "1",
+        "nameCn": "1",
+        "phone": "1",
+        "email": "",
+        "gender": "男",
+        "securityQuestions": [
+          {
+            "question": "",
+            "answer": ""
+          },
+          {
+            "question": "",
+            "answer": ""
+          },
+          {
+            "question": "",
+            "answer": ""
+          }
+        ]
+      },
       "zhuha": {
         "password": "zhuha106424",
         "role": "superadmin",
@@ -1969,8 +2012,8 @@
       "TEST"
     ],
     "fi_sync_lock": {
-      "tabId": "tmrkhdkkkafdbbe",
-      "ts": 1784023251276
+      "tabId": "tmrkhe0037q85xt",
+      "ts": 1784023283059
     }
   }
 }
