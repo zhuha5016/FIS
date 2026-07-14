@@ -381,9 +381,9 @@ FA.Auth = {
         localStorage.setItem('fi_login_time', FA.currentUser.loginTime);
 
         /* 注册为当前账号的活跃会话, 触发单点登录同步 */
-        if (self._sessionToken) {
-            FA.saveSessionInfo({ username: username, token: self._sessionToken, loginAt: Date.now() });
-            FA.registerActiveSession(username, self._sessionToken);
+        if (this._sessionToken) {
+            FA.saveSessionInfo({ username: username, token: this._sessionToken, loginAt: Date.now() });
+            FA.registerActiveSession(username, this._sessionToken);
             if (FA.Sync && FA.Sync.schedulePush) FA.Sync.schedulePush();
         }
 
