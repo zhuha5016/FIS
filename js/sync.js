@@ -2,7 +2,9 @@
    sync.js - GitHub 云同步模块
    将 localStorage 中的 fi_* 数据同步到 GitHub 仓库, 实现跨浏览器/设备共享
    方案: 单文件存储 (data/family-data.json), 通过 GitHub Contents API 读写
-   冲突策略: 后写入者胜 (last-write-wins), 409 冲突时先拉取再重试
+   冲突策略: 后写入者胜 (last-write-wins), 409 冲突时内部自动重试(max 3次)
+   错误策略: 所有临时错误(409/422/网络)完全静默; 仅配置类错误(401/403/404)弹窗
+   频率策略: 推送防抖 10秒, 拉取 15秒, 连续失败自动降速到 60秒
    ====================================================================== */
 
 window.FA = window.FA || {};
@@ -29,6 +31,8 @@ FA.Sync = {
     _syncInProgress: false, // 是否正在同步(推/拉), 防止并发导致 409/422
     _token: '',            // 从 fi_sync_token 单独读取, 不推送到 GitHub
     _initialized: false,
+    _consecutiveFails: 0,  // 连续失败计数 (用于自动降速)
+    _pullIntervalMs: 15000, // 自动拉取间隔 (动态: 失败多则变慢)
 
     /* 不应同步的键 (会话 / 纯本地偏好 / 同步配置 / Token) */
     EXCLUDE_KEYS: [
@@ -262,13 +266,19 @@ FA.Sync = {
             return result.changed;
         }).catch(function(err) {
             var msg = (err && err.message) ? err.message : '';
-            var isNetworkError = (err && err.name === 'TypeError') ||
-                /failed to fetch|network|timeout|abort/i.test(msg);
-            if (isNetworkError) {
-                /* 临时网络抖动: 静默回到空闲, 5秒后自动重试, 不打扰用户 */
+            /* 所有拉取错误都静默处理:
+               - 网络抖动 / 409 / 422 → 下次自动重试
+               - 401/403/404 → 仅更新状态指示器, 不弹窗 (拉取失败不紧急)
+               拉取是被动操作, 不需要打扰用户 */
+            var isTransient = (err && err.name === 'TypeError') ||
+                /failed to fetch|network|timeout|abort|409|422/i.test(msg);
+            if (isTransient) {
+                self._consecutiveFails++;
+                self._slowDownIfNeeded();
                 self.setStatus('idle');
-                console.warn('[Sync] 拉取临时失败 (网络), 稍后自动重试:', msg);
+                console.warn('[Sync] 拉取临时失败 (已静默):', msg);
             } else {
+                /* 配置类错误: 更新状态但不弹窗 (拉取不是用户主动操作) */
                 self.setStatus('error', msg);
                 console.error('[Sync] 拉取失败:', err);
             }
@@ -280,12 +290,14 @@ FA.Sync = {
 
     /* ============================================================
        推送到 GitHub
+       策略: 409/422 冲突 → 内部自动重试(max 3次, 指数退避)
+             所有临时错误(冲突/网络) → 完全静默, 不弹窗
+             仅 401/403/404 等配置类错误 → 弹窗提醒用户
        ============================================================ */
     push: function() {
         var self = this;
         if (!this.isConfigured()) return Promise.resolve(false);
         if (this._syncInProgress) {
-            /* 已有同步在进行, 标记待推送后重试 */
             this._hasPendingPush = true;
             return Promise.resolve(false);
         }
@@ -298,6 +310,51 @@ FA.Sync = {
             updatedAt: new Date().toISOString(),
             data: this.collectLocalData()
         };
+
+        return self._doPushWithRetry(payload, 0).then(function(success) {
+            if (success) {
+                self._consecutiveFails = 0;
+                self._restorePullInterval();
+                self.setStatus('success');
+                self.lastSyncTime = new Date();
+            } else {
+                /* 重试次数耗尽: 标记待推送, 等下一轮 schedulePush 自动重试 */
+                self._consecutiveFails++;
+                self._slowDownIfNeeded();
+                self.setStatus('idle');
+                self._hasPendingPush = true;
+            }
+            return success;
+        }).catch(function(err) {
+            var msg = (err && err.message) ? err.message : '';
+            /* 错误分级:
+               - 网络抖动 / 409 SHA 冲突 / 422 状态异常 → 完全静默, 自动降速重试
+               - 401 Token失效 / 403 无权限 / 404 仓库不存在 → 弹窗, 需用户处理 */
+            var isNetworkError = (err && err.name === 'TypeError') ||
+                /failed to fetch|network|timeout|abort/i.test(msg);
+            var isTransientConflict = /409|422|does not match|sha/i.test(msg);
+            if (isNetworkError || isTransientConflict) {
+                self._consecutiveFails++;
+                self._slowDownIfNeeded();
+                self.setStatus('idle');
+                self._hasPendingPush = true;
+                console.warn('[Sync] 推送临时失败 (已静默, 将自动重试):', msg);
+            } else {
+                self.setStatus('error', msg);
+                console.error('[Sync] 推送失败 (需用户处理):', err);
+                if (FA.showToast) FA.showToast('☁️ 同步配置错误: ' + msg, 'error');
+            }
+            return false;
+        }).finally(function() {
+            self._syncInProgress = false;
+            if (self._hasPendingPush) self.schedulePush();
+        });
+    },
+
+    /* 内部: 带重试的推送 (max 3次, 指数退避 1s/2s/4s) */
+    _doPushWithRetry: function(payload, attempt) {
+        var self = this;
+        var maxRetries = 3;
 
         var jsonStr = JSON.stringify(payload, null, 2);
         var bytes = new TextEncoder().encode(jsonStr);
@@ -319,86 +376,65 @@ FA.Sync = {
         return fetch(url, {
             method: 'PUT',
             headers: {
-                'Authorization': 'Bearer ' + this._token,
+                'Authorization': 'Bearer ' + self._token,
                 'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(body)
         }).then(function(res) {
             if (res.status === 409 || res.status === 422) {
-                /* 409: sha 冲突; 422: 文件已存在但缺少 sha / sha 过期
-                   先拉取最新 sha 再重试 */
-                return self.pull().then(function() {
-                    return new Promise(function(r) { setTimeout(r, 500); });
-                }).then(function() { return self._retryPush(payload); });
+                /* SHA 冲突 / 文件状态异常: 先拉取最新 sha, 再重试 */
+                if (attempt < maxRetries) {
+                    return self._refreshSha().then(function() {
+                        var delay = Math.pow(2, attempt) * 1000; /* 1s, 2s, 4s */
+                        return new Promise(function(r) { setTimeout(r, delay); });
+                    }).then(function() {
+                        return self._doPushWithRetry(payload, attempt + 1);
+                    });
+                }
+                /* 重试次数耗尽: 静默放弃, 等下次 schedulePush */
+                return false;
             }
             if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
             return res.json();
         }).then(function(json) {
             if (json && json.content && json.content.sha) self.remoteSha = json.content.sha;
-            self.setStatus('success');
-            self.lastSyncTime = new Date();
             return true;
-        }).catch(function(err) {
-            var msg = (err && err.message) ? err.message : '';
-            /* 区分临时网络抖动与真实配置/授权错误:
-               网络抖动 (Failed to fetch / TypeError) 仅更新状态指示, 不打扰用户 (每5秒自动重试)
-               真实错误 (GitHub API 错误 / 401 / 403 / 404 / 422) 才弹错误提示, 需要用户处理 */
-            var isNetworkError = (err && err.name === 'TypeError') ||
-                /failed to fetch|network|timeout|abort/i.test(msg);
-            if (isNetworkError) {
-                self.setStatus('idle');   // 静默: 仅回到空闲, 等待下次自动重试
-                console.warn('[Sync] 推送临时失败 (网络), 稍后自动重试:', msg);
-            } else {
-                self.setStatus('error', msg);
-                console.error('[Sync] 推送失败:', err);
-                if (FA.showToast) FA.showToast('☁️ 同步失败: ' + msg, 'error');
-            }
-            return false;
-        }).finally(function() {
-            self._syncInProgress = false;
-            /* 如果同步期间又有数据变更, 再次触发推送 */
-            if (self._hasPendingPush) self.schedulePush();
         });
     },
 
-    /* 冲突后重试 (使用最新 sha) */
-    _retryPush: function(payload) {
+    /* 仅刷新 remoteSha (轻量 pull, 不 applyRemoteData) */
+    _refreshSha: function() {
         var self = this;
-        var jsonStr = JSON.stringify(payload, null, 2);
-        var bytes = new TextEncoder().encode(jsonStr);
-        var binary = '';
-        for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        var content = btoa(binary);
-
         var url = 'https://api.github.com/repos/' + encodeURIComponent(this.config.owner) + '/' +
                   encodeURIComponent(this.config.repo) + '/contents/' +
-                  encodeURIComponent(this.config.path);
-
+                  encodeURIComponent(this.config.path) + '?ref=' + encodeURIComponent(this.config.branch);
         return fetch(url, {
-            method: 'PUT',
             headers: {
-                'Authorization': 'Bearer ' + this._token,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: '🔄 家庭数据同步 (冲突重试) ' + new Date().toLocaleString('zh-CN'),
-                content: content,
-                branch: this.config.branch,
-                sha: this.remoteSha
-            })
+                'Authorization': 'Bearer ' + self._token,
+                'Accept': 'application/vnd.github.v3+json'
+            }
         }).then(function(res) {
-            if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
+            if (!res.ok) return null;
             return res.json();
         }).then(function(json) {
-            if (json && json.content && json.content.sha) self.remoteSha = json.content.sha;
-            return true;
-        });
+            if (json && json.sha) self.remoteSha = json.sha;
+            /* 同时 apply 远程数据 (保持本地最新) */
+            if (json && json.content) {
+                try {
+                    var binary = atob(json.content.replace(/\s/g, ''));
+                    var bytes = new Uint8Array(binary.length);
+                    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    var text = new TextDecoder('utf-8').decode(bytes);
+                    var remoteData = JSON.parse(text);
+                    self.applyRemoteData(remoteData);
+                } catch (e) {}
+            }
+        }).catch(function() { /* 静默: refreshSha 失败不影响主流程 */ });
     },
 
     /* ============================================================
-       自动推送 (数据变更时, 防抖 3 秒)
+       自动推送 (数据变更时, 防抖 10 秒 — 批量合并多次变更, 减少冲突)
        ============================================================ */
     schedulePush: function() {
         if (!this.isConfigured()) return;
@@ -407,20 +443,38 @@ FA.Sync = {
         if (this._pushTimer) clearTimeout(this._pushTimer);
         this._pushTimer = setTimeout(function() {
             self.push();
-        }, 3000);
+        }, 10000);
     },
 
     /* ============================================================
-       自动拉取 (每 5 秒, 但本地有未推送改动或同步中跳过)
-       5 秒周期确保聊天、注册、账号修改等跨设备及时同步
+       自动拉取 (动态间隔: 正常 15 秒, 连续失败后自动降速到 60 秒)
+       本地有未推送改动或同步进行中时跳过, 避免覆盖/并发
        ============================================================ */
     startAutoPull: function() {
         var self = this;
         if (this._pullTimer) clearInterval(this._pullTimer);
         this._pullTimer = setInterval(function() {
-            if (self._hasPendingPush || self._syncInProgress) return;  // 避免覆盖本地未保存编辑 / 避免并发
+            if (self._hasPendingPush || self._syncInProgress) return;
             self.pull();
-        }, 5000);
+        }, this._pullIntervalMs);
+    },
+
+    /* 连续失败 3 次以上 → 拉取间隔降到 60 秒 (减少冲突/API消耗) */
+    _slowDownIfNeeded: function() {
+        if (this._consecutiveFails >= 3 && this._pullIntervalMs < 60000) {
+            this._pullIntervalMs = 60000;
+            this.startAutoPull();
+            console.warn('[Sync] 连续失败 ' + this._consecutiveFails + ' 次, 拉取间隔降为 60 秒');
+        }
+    },
+
+    /* 成功后恢复正常拉取间隔 */
+    _restorePullInterval: function() {
+        if (this._pullIntervalMs !== 15000) {
+            this._pullIntervalMs = 15000;
+            this.startAutoPull();
+            console.log('[Sync] 恢复正常拉取间隔 (15 秒)');
+        }
     },
 
     /* ============================================================

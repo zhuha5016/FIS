@@ -16,6 +16,10 @@ FA.accounts = {
     "luoaiyu":    { password: "19520606",   role: "user",      name: "luoaiyu",    nameCn: "罗爱玉", phone: "135****0005", email: "luoaiyu@family.local", gender: "女", securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ] }
 };
 
+/* 内置默认账号用户名 (仅这些会在「本地无数据时」被自动补回;
+   动态添加的账号如 test/TEST 不在列表内, 删除后不会被复活) */
+FA.BUILTIN_USERNAMES = ['zhuha', 'zhunengxin', 'huguili', 'zhurenmin', 'luoaiyu'];
+
 /* 角色显示名映射 */
 FA.roleNames = {
     superadmin: "超级管理员",
@@ -99,7 +103,8 @@ FA.DB_KEYS = {
     chatPinned: 'fi_chat_pinned',     // 置顶聊天
     chatMuted: 'fi_chat_muted',       // 静音聊天
     registrations: 'fi_registrations', // 注册申请
-    activeSessions: 'fi_active_sessions' // 每个账号的活跃会话(单点登录)
+    activeSessions: 'fi_active_sessions', // 每个账号的活跃会话(单点登录)
+    deletedUsernames: 'fi_deleted_usernames' // 已删除的账号用户名 (防止云同步复活)
 };
 
 /* =====================

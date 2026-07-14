@@ -21,9 +21,11 @@ FA.Data = {
         if (savedAccounts) {
             try {
                 var parsed = JSON.parse(savedAccounts);
-                /* 合并: 确保新增的默认账户也存在 */
-                Object.keys(FA.accounts).forEach(function(key) {
-                    if (!parsed[key]) parsed[key] = FA.accounts[key];
+                var deletedSet = FA.Data.getDeletedUsernames();
+                /* 仅补回「内置默认账号」中未删除的; 动态账号(test/TEST 等)不补回,
+                   已删除的内置账号也不补回 → 防止云同步拉取后把删除的账号复活 */
+                (FA.BUILTIN_USERNAMES || []).forEach(function(key) {
+                    if (!parsed[key] && deletedSet.indexOf(key) === -1) parsed[key] = FA.accounts[key];
                 });
                 FA.accounts = parsed;
             } catch (e) {
@@ -113,6 +115,38 @@ FA.Data = {
     /* 持久化账户体系到 localStorage (成员编辑后同步) */
     saveAccounts: function() {
         FA.Data.saveData(FA.DB_KEYS.accounts, FA.accounts);
+    },
+
+    /* =====================
+       已删除账号追踪: 防止云同步拉取后把删除的账号复活
+       ===================== */
+    getDeletedUsernames: function() {
+        try {
+            var raw = localStorage.getItem(FA.DB_KEYS.deletedUsernames);
+            var arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr : [];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    markDeletedUsername: function(username) {
+        if (!username) return;
+        var set = FA.Data.getDeletedUsernames();
+        if (set.indexOf(username) === -1) {
+            set.push(username);
+            FA.Data.saveData(FA.DB_KEYS.deletedUsernames, set);
+        }
+    },
+
+    unmarkDeletedUsername: function(username) {
+        if (!username) return;
+        var set = FA.Data.getDeletedUsernames();
+        var idx = set.indexOf(username);
+        if (idx !== -1) {
+            set.splice(idx, 1);
+            FA.Data.saveData(FA.DB_KEYS.deletedUsernames, set);
+        }
     },
 
     /* 导出数据 */
