@@ -790,6 +790,8 @@ FA.deleteMember = function(index) {
     if (m.username && FA.accounts[m.username]) {
         delete FA.accounts[m.username];
         FA.Data.saveAccounts();
+        /* 标记为已删除, 防止云同步拉取后复活 */
+        FA.Data.markDeletedUsername(m.username);
         localStorage.removeItem('fi_avatar_' + m.username);
     }
 
@@ -880,6 +882,8 @@ FA.saveMemberNew = function() {
         securityQuestions: [ { question: '', answer: '' }, { question: '', answer: '' }, { question: '', answer: '' } ]
     };
     FA.Data.saveAccounts();
+    /* 重新添加曾删除的同名账号: 从已删除集合中移除 */
+    FA.Data.unmarkDeletedUsername(username);
 
     FA.Data.saveData(FA.DB_KEYS.members, FA.members);
     FA.renderMembers();
