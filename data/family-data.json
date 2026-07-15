@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-15T04:00:33.140Z",
+  "updatedAt": "2026-07-15T04:01:23.548Z",
   "data": {
     "fi_verify_session": {
       "time": 1784024943175,
@@ -80,8 +80,8 @@
       }
     ],
     "fi_sync_lock": {
-      "tabId": "tmrljy8nv4i8ngs",
-      "ts": 1784088033115
+      "tabId": "tmrljzb77106rgo",
+      "ts": 1784088083059
     },
     "fi_chat_pinned": [],
     "fi_events": [
@@ -881,7 +881,7 @@
         "title": "照片上传",
         "content": "上传了 3 张照片到「Camera1」",
         "time": "2026-07-14T10:28:33.460Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1784023261789,
@@ -889,7 +889,7 @@
         "title": "成员添加",
         "content": "1 已添加到家庭成员",
         "time": "2026-07-14T10:01:01.789Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1783997666918,
@@ -1145,7 +1145,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T11:33:37.062Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1784028817061,
@@ -1153,7 +1153,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T11:33:37.061Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1784028806062,
@@ -1161,7 +1161,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T11:33:26.062Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1784028806061,
@@ -1169,7 +1169,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T11:33:26.061Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1784028795592,
@@ -1177,7 +1177,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T11:33:15.592Z",
-        "read": false
+        "read": true
       },
       {
         "id": 1784028795591,
@@ -1185,7 +1185,7 @@
         "title": "系统已离线",
         "content": "请检查网络设置。VAL服务已同步为离线状态。",
         "time": "2026-07-14T11:33:15.591Z",
-        "read": false
+        "read": true
       }
     ],
     "fi_user_verified": {
