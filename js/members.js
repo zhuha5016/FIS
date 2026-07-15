@@ -105,13 +105,14 @@ FA._esc = function(str) {
 })();
 
 /* ======================================================================
-   1. 联系弹窗
+   1. 联系弹窗 (稳健版: 单一 document 监听 + 时间戳防抖, 杜绝"打开即被关闭")
    ====================================================================== */
 FA._contactPopup = null;
+FA._contactJustOpened = 0;
 
 FA.showContactPopup = function(index, btnEl) {
     FA.closeContactPopup();
-    var m = FA.members[index];
+    var m = (FA.members && FA.members[index]) ? FA.members[index] : null;
     if (!m) return;
 
     var surname = (m.nameCn || m.name || '?').charAt(0);
@@ -125,38 +126,44 @@ FA.showContactPopup = function(index, btnEl) {
         '<div class="contact-popup-row"><span>✉️</span> ' + FA._esc(m.email || '未填写') + '</div>';
 
     document.body.appendChild(popup);
-
-    /* 定位到按钮下方 */
-    var rect = btnEl.getBoundingClientRect();
-    var popupRect = popup.getBoundingClientRect();
-    var top = rect.bottom + 8;
-    var left = rect.left;
-
-    /* 防止超出视口 */
-    if (top + popupRect.height > window.innerHeight) {
-        top = rect.top - popupRect.height - 8;
-    }
-    if (left + popupRect.width > window.innerWidth - 10) {
-        left = window.innerWidth - popupRect.width - 10;
-    }
-    popup.style.top = Math.max(10, top) + 'px';
-    popup.style.left = Math.max(10, left) + 'px';
-
     FA._contactPopup = popup;
+    FA._contactJustOpened = Date.now();
+    _bindContactOutside(); /* 绑定单一外部点击监听 (幂等) */
 
-    /* 延迟绑定关闭事件，避免当前点击立即关闭 */
-    setTimeout(function() {
-        document.addEventListener('click', FA._contactPopupHandler);
-    }, 0);
+    /* 定位到按钮下方 (带视口边界保护) */
+    try {
+        var rect = (btnEl && btnEl.getBoundingClientRect) ? btnEl.getBoundingClientRect() : null;
+        var pr = popup.getBoundingClientRect();
+        if (rect) {
+            var top = rect.bottom + 8;
+            var left = rect.left;
+            if (top + pr.height > window.innerHeight) top = rect.top - pr.height - 8;
+            if (left + pr.width > window.innerWidth - 10) left = window.innerWidth - pr.width - 10;
+            popup.style.top = Math.max(10, top) + 'px';
+            popup.style.left = Math.max(10, left) + 'px';
+        } else {
+            popup.style.top = '80px';
+            popup.style.left = '20px';
+        }
+    } catch (e) {}
 };
 
-FA._contactPopupHandler = function(e) {
-    if (FA._contactPopup &&
-        !e.target.closest('.contact-popup') &&
-        !e.target.closest('.contact-btn')) {
+/* 单一持久 document 监听: 捕获阶段绑定, 用时间戳忽略"打开当次点击",
+   彻底避免弹窗刚打开就被同一/后续冒泡点击关掉 */
+var _contactBound = false;
+function _bindContactOutside() {
+    if (_contactBound) return;
+    _contactBound = true;
+    document.addEventListener('click', function(e) {
+        if (!FA._contactPopup) return;
+        /* 打开后 80ms 内的点击一律忽略 (覆盖本次 opening 点击及其冒泡) */
+        if (Date.now() - FA._contactJustOpened < 80) return;
+        /* 点到弹窗自身或联系按钮 → 不关 */
+        if (e.target && e.target.closest && e.target.closest('.contact-popup')) return;
+        if (e.target && e.target.closest && e.target.closest('.contact-btn')) return;
         FA.closeContactPopup();
-    }
-};
+    }, true);
+}
 
 FA.closeContactPopup = function() {
     if (FA._contactPopup) {
@@ -165,7 +172,6 @@ FA.closeContactPopup = function() {
         }
         FA._contactPopup = null;
     }
-    document.removeEventListener('click', FA._contactPopupHandler);
 };
 
 /* ======================================================================

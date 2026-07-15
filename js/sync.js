@@ -3,7 +3,7 @@
    将 localStorage 中的 fi_* 数据同步到 GitHub 仓库, 实现跨浏览器/设备共享
    方案: 单文件存储 (data/family-data.json), 通过 GitHub Contents API 读写
 
-   冲突策略 (根治版, v20260714e):
+   冲突策略 (根治版, v20260714e → v20260715a 提速/稳化):
    - 采用「合并式同步 (CRDT-lite)」, 彻底消除 409 死循环与新建/删除账号丢失
    - 推送前先拉取最新远程, 用 reconcile() 把「本地改动」与「远程改动」合并:
        * fi_accounts / fi_active_sessions: 按 username 并集 (两边同时新增都保留)
@@ -13,8 +13,15 @@
    - 推送遇到 409/422 → 重新拉取最新再合并重试 (最多 5 次), 必然收敛
    - 拉取绝不整体覆盖本地: 用 reconcile 让本地未推送改动存活, 仅补入远程增量
 
+   提速/稳化 (v20260715a):
+   - ETag 条件拉取: 远程未变时返回 304, 免解析/免冲突, 拉取近乎零成本
+   - 脏数据检测: 本地数据未变化时跳过推送, 大幅减少 409 风暴与 API 消耗
+   - 推送防抖 10s→6s, 拉取 15s→12s, 同步更跟手
+   - 切回标签页 / 其他标签改动 → 立即拉取 (跨标签近乎实时)
+   - 远程数据内存缓存, 配合 ETag 让推送合并始终有正确基线
+
    错误策略: 所有临时错误(409/422/网络)完全静默; 仅配置类错误(401/403/404)弹窗
-   频率策略: 推送防抖 10秒, 拉取 15秒, 连续失败自动降速到 60秒
+   频率策略: 推送防抖 6秒, 拉取 12秒, 连续失败自动降速到 60秒
    并发控制: 跨标签锁 (fi_sync_lock), 避免同浏览器多标签同时推送造成 409 风暴
    ====================================================================== */
 
@@ -43,14 +50,18 @@ FA.Sync = {
     _token: '',            // 从 fi_sync_token 单独读取, 不推送到 GitHub
     _initialized: false,
     _consecutiveFails: 0,  // 连续失败计数 (用于自动降速)
-    _pullIntervalMs: 15000, // 自动拉取间隔 (动态: 失败多则变慢)
+    _pullIntervalMs: 12000, // 自动拉取间隔 (动态: 失败多则变慢)
+    _lastPushedSig: null,    // 上次成功推送的本地数据签名 (脏检测: 未变化则跳过)
+    _remoteEtag: null,       // 远程文件 ETag (条件拉取 304)
+    _lastRemoteData: null,    // 远程数据内存缓存 (配合 ETag, 推送合并基线)
 
     /* 不应同步的键 (会话 / 纯本地偏好 / 同步配置 / Token) */
     EXCLUDE_KEYS: [
         'fi_session',          // 旧会话键 (已废弃)
         'fi_language',          // 语言偏好 (本地)
         'fi_sync_config',       // 同步配置 (仓库地址等, 本地配置即可)
-        'fi_sync_token'         // Token 绝不能同步到 GitHub
+        'fi_sync_token',        // Token 绝不能同步到 GitHub
+        'fi_sync_lock'          // 跨标签临时锁, 非业务数据, 且每次加锁都会变 → 必须排除, 否则脏签名恒变
     ],
 
     /* ============================================================
@@ -59,6 +70,7 @@ FA.Sync = {
     init: function() {
         if (this._initialized) return;
         this._initialized = true;
+        var self = this;
 
         /* 读取已保存的配置 (不含 token) */
         var saved = FA.Data.loadData('fi_sync_config', null);
@@ -87,10 +99,23 @@ FA.Sync = {
         /* 已配置则启动自动拉取 + 首拉 */
         if (this.isConfigured()) {
             this.startAutoPull();
-            var self = this;
             setTimeout(function() { self.pull(); }, 1500);
+            /* 首拉后主动推送一次本地数据 (含 fi_accounts 等),
+               确保新建/修复的本地账号尽快上云, 供 RDM 拉取 */
+            setTimeout(function() { self.schedulePush(); }, 3000);
             this.setStatus('idle');
         }
+
+        /* 提速: 切回标签页 或 其他标签改了 fi_* → 立即拉取 (跨标签近乎实时) */
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible' && self.isConfigured()) self.pull();
+        });
+        window.addEventListener('storage', function(e) {
+            if (e && e.key && e.key.indexOf('fi_') === 0 &&
+                e.key.indexOf('fi_session_') !== 0 && e.key !== 'fi_sync_token') {
+                if (self.isConfigured()) self.pull();
+            }
+        });
     },
 
     isConfigured: function() {
@@ -239,10 +264,22 @@ FA.Sync = {
 
         return this._getRemote().then(function(remote) {
             if (!remote) { self.setStatus('idle'); return false; }
+            /* 远程未变 (304): 免解析/免冲突, 直接成功返回 */
+            if (remote.notModified) {
+                self._consecutiveFails = 0;
+                self._restorePullInterval();
+                self.setStatus('success');
+                self.lastSyncTime = new Date();
+                return false;
+            }
             self.remoteSha = remote.sha;
             var result = self.applyRemoteData(remote);
             self.setStatus('success');
             self.lastSyncTime = new Date();
+            /* 拉取到的远程数据无需回推: 更新脏签名, 避免立刻又推一次 */
+            self._lastPushedSig = self._sig(self.collectLocalData());
+            self._consecutiveFails = 0;
+            self._restorePullInterval();
 
             /* 聊天数据变化时实时刷新聊天界面 */
             if (result.keys.indexOf(FA.DB_KEYS.chatMessages) !== -1) {
@@ -301,6 +338,15 @@ FA.Sync = {
         }
         this._syncInProgress = true;
         this._hasPendingPush = false;
+        /* 脏检测: 本地数据自上次成功推送后未变化 → 跳过网络请求,
+           大幅减少无谓的 409 与 API 消耗 (提速 + 稳化) */
+        var sig = this._sig(this.collectLocalData());
+        if (this._lastPushedSig === sig) {
+            this._syncInProgress = false;
+            this._releaseLock();
+            this.setStatus('idle');
+            return Promise.resolve(false);
+        }
         this.setStatus('syncing');
         return this._pushLoop(0).then(function(success) {
             if (success) {
@@ -382,6 +428,8 @@ FA.Sync = {
                         if (j && j.content && j.content.sha) self.remoteSha = j.content.sha;
                         /* 把合并结果写回本地, 使本地与远程立即一致 (含对方新增) */
                         self._writeMerged(merged);
+                        /* 记录已推送签名, 后续未变化时跳过推送 */
+                        self._lastPushedSig = self._sig(merged);
                         return true;
                     });
                 }
@@ -398,31 +446,57 @@ FA.Sync = {
         });
     },
 
-    /* 拉取远程文件 (返回 {sha, data} 或 null=文件不存在/404);  fatal 错误抛出 */
+    /* 拉取远程文件 (返回 {sha, data} / {notModified:true} / null=404); fatal 错误抛出
+       提速: 带 If-None-Match (ETag), 远程未变时返回 304 → notModified, 零解析零冲突
+       稳化: 缓存最近一次远程数据, 配合 304 作为推送合并基线 */
     _getRemote: function() {
         var self = this;
         var url = 'https://api.github.com/repos/' + encodeURIComponent(this.config.owner) + '/' +
                   encodeURIComponent(this.config.repo) + '/contents/' +
                   encodeURIComponent(this.config.path) + '?ref=' + encodeURIComponent(this.config.branch);
-        return fetch(url, {
-            headers: {
-                'Authorization': 'Bearer ' + self._token,
-                'Accept': 'application/vnd.github.v3+json'
+        var headers = {
+            'Authorization': 'Bearer ' + self._token,
+            'Accept': 'application/vnd.github.v3+json'
+        };
+        if (self._remoteEtag) headers['If-None-Match'] = self._remoteEtag;
+        return fetch(url, { headers: headers }).then(function(res) {
+            if (res.status === 304) {
+                /* 远程未修改: 复用缓存的 sha 与数据, 省去下载与解析 */
+                return { notModified: true, sha: self.remoteSha, data: self._lastRemoteData || null };
             }
-        }).then(function(res) {
+            var etag = res.headers.get('ETag');
+            if (etag) self._remoteEtag = etag;
             if (res.status === 404) return null;
             if (!res.ok) return self._extractError(res).then(function(m){ throw new Error(m); });
             return res.json();
         }).then(function(json) {
             if (!json) return null;
-            if (!json.content) return { sha: json.sha || null, data: {} };
+            if (json.notModified) return json; // 透传 304 结果, 不破坏 notModified / 缓存数据
+            if (!json.content) { self._lastRemoteData = {}; return { sha: json.sha || null, data: {} }; }
             var binary = atob(json.content.replace(/\s/g, ''));
             var bytes = new Uint8Array(binary.length);
             for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             var text = new TextDecoder('utf-8').decode(bytes);
             var remoteData = JSON.parse(text);
-            return { sha: json.sha, data: (remoteData && remoteData.data) ? remoteData.data : {} };
+            var data = (remoteData && remoteData.data) ? remoteData.data : {};
+            self._lastRemoteData = data; // 缓存, 配合 ETag 在 304 时作合并基线
+            return { sha: json.sha, data: data };
         });
+    },
+
+    /* ============================================================
+       脏数据签名: 轻量 FNV-1a 32 位哈希
+       用于判断「本地数据是否真的发生了变化」, 未变化则跳过推送
+       (JSON 键序稳定, 同一对象序列化结果一致, 签名可复现)
+       ============================================================ */
+    _sig: function(data) {
+        var s = JSON.stringify(data);
+        var h = 0x811c9dc5;
+        for (var i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = (h * 0x01000193) >>> 0;
+        }
+        return h.toString(16);
     },
 
     /* ============================================================
@@ -550,11 +624,11 @@ FA.Sync = {
         if (this._pushTimer) clearTimeout(this._pushTimer);
         this._pushTimer = setTimeout(function() {
             self.push();
-        }, 10000);
+        }, 6000);
     },
 
     /* ============================================================
-       自动拉取 (动态间隔: 正常 15 秒, 连续失败后自动降速到 60 秒)
+       自动拉取 (动态间隔: 正常 12 秒, 连续失败后自动降速到 60 秒)
        本地有未推送改动或同步进行中时跳过, 避免覆盖/并发
        ============================================================ */
     startAutoPull: function() {
@@ -577,10 +651,10 @@ FA.Sync = {
 
     /* 成功后恢复正常拉取间隔 */
     _restorePullInterval: function() {
-        if (this._pullIntervalMs !== 15000) {
-            this._pullIntervalMs = 15000;
+        if (this._pullIntervalMs !== 12000) {
+            this._pullIntervalMs = 12000;
             this.startAutoPull();
-            console.log('[Sync] 恢复正常拉取间隔 (15 秒)');
+            console.log('[Sync] 恢复正常拉取间隔 (12 秒)');
         }
     },
 

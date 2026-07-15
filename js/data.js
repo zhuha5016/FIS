@@ -16,26 +16,28 @@ FA.Data = {
 
     /* 初始化所有数据 */
     init: function() {
-        /* 账户体系: 先加载 localStorage 中持久化的版本 (成员编辑时同步) */
+        /* 账户体系: 先尝试加载 localStorage 中持久化的版本 (成员编辑时同步) */
         var savedAccounts = localStorage.getItem(FA.DB_KEYS.accounts);
+        var parsed = null;
         if (savedAccounts) {
-            try {
-                var parsed = JSON.parse(savedAccounts);
-                var deletedSet = FA.Data.getDeletedUsernames();
-                /* 仅补回「内置默认账号」中未删除的; 动态账号(test/TEST 等)不补回,
-                   已删除的内置账号也不补回 → 防止云同步拉取后把删除的账号复活 */
-                (FA.BUILTIN_USERNAMES || []).forEach(function(key) {
-                    if (!parsed[key] && deletedSet.indexOf(key) === -1) parsed[key] = FA.accounts[key];
-                });
-                FA.accounts = parsed;
-            } catch (e) {
-                /* 解析失败, 保留默认账户 */
-            }
+            try { parsed = JSON.parse(savedAccounts); } catch (e) { parsed = null; }
+        }
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length) {
+            var deletedSet = FA.Data.getDeletedUsernames();
+            /* 仅补回「内置默认账号」中未删除的; 动态账号(test/TEST 等)不补回,
+               已删除的内置账号也不补回 → 防止云同步拉取后把删除的账号复活 */
+            (FA.BUILTIN_USERNAMES || []).forEach(function(key) {
+                if (!parsed[key] && deletedSet.indexOf(key) === -1) parsed[key] = FA.accounts[key];
+            });
+            FA.accounts = parsed;
+            FA.Data.saveAccounts(); // 确保补回内置账号后落盘
         } else {
-            /* 首次启动: 将内置默认账户持久化到 fi_accounts,
+            /* 首次启动 或 本地数据为空/损坏: 将内置默认账户持久化到 fi_accounts,
                以便云同步把账号体系同步到 GitHub, 供 RDM 拉取账号 (Feature 3) */
             FA.Data.saveAccounts();
-            if (FA.Sync && FA.Sync.schedulePush) FA.Sync.schedulePush();
+            if (FA.Sync && FA.Sync.schedulePush && FA.Sync.isConfigured && FA.Sync.isConfigured()) {
+                FA.Sync.schedulePush();
+            }
         }
 
         FA.members = this.loadData(FA.DB_KEYS.members, [
