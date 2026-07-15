@@ -176,8 +176,8 @@ FA.Settings = {
                     '<div id="syncStatusArea" style="padding:4px 0 14px;font-size:13px;color:#666;display:none">' +
                         '<span id="syncStatusIndicator"></span>' +
                         '<div style="margin-top:10px;display:flex;gap:8px">' +
-                            '<button class="toolbar-btn" onclick="FA.Sync.pull()">立即拉取</button>' +
-                            '<button class="toolbar-btn" onclick="FA.Sync.push()">立即推送</button>' +
+                            '<button class="toolbar-btn" onclick="FA.Sync.pull(true)">立即拉取</button>' +
+                            '<button class="toolbar-btn" onclick="FA.Sync.push(true)">立即推送</button>' +
                         '</div>' +
                         '<div style="margin-top:8px;font-size:11px;color:#aaa" id="syncConfigHint"></div>' +
                     '</div>' +

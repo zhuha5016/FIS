@@ -254,22 +254,27 @@ FA.Sync = {
        从 GitHub 拉取 (pull)
        用 reconcile 合并, 不会覆盖本地未推送改动
        ============================================================ */
-    pull: function() {
+    pull: function(notify) {
         var self = this;
-        if (!this.isConfigured()) return Promise.resolve(false);
-        if (this._syncInProgress) return Promise.resolve(false);
-        if (!this._acquireLock()) return Promise.resolve(false);  // 跨标签互斥, 避免并发
+        if (!this.isConfigured()) {
+            if (notify && FA.showToast) FA.showToast('请先在「系统设置 → 数据管理 → 配置」中启用云同步', 'info');
+            return Promise.resolve(false);
+        }
+        if (this._syncInProgress) { if (notify && FA.showToast) FA.showToast('同步进行中，请稍候', 'info'); return Promise.resolve(false); }
+        if (!this._acquireLock()) { if (notify && FA.showToast) FA.showToast('其他标签页正在同步', 'info'); return Promise.resolve(false); }  // 跨标签互斥, 避免并发
         this._syncInProgress = true;
         this.setStatus('syncing');
+        if (notify && FA.showToast) FA.showToast('正在拉取最新数据…', 'info');
 
         return this._getRemote().then(function(remote) {
-            if (!remote) { self.setStatus('idle'); return false; }
+            if (!remote) { self.setStatus('idle'); if (notify && FA.showToast) FA.showToast('云端暂无数据', 'info'); return false; }
             /* 远程未变 (304): 免解析/免冲突, 直接成功返回 */
             if (remote.notModified) {
                 self._consecutiveFails = 0;
                 self._restorePullInterval();
                 self.setStatus('success');
                 self.lastSyncTime = new Date();
+                if (notify && FA.showToast) FA.showToast('已是最新', 'info');
                 return false;
             }
             self.remoteSha = remote.sha;
@@ -295,6 +300,7 @@ FA.Sync = {
             }
 
             if (result.changed && FA.renderAll) FA.renderAll();
+            if (notify && FA.showToast) FA.showToast(result.changed ? '已拉取最新数据' : '已是最新', 'success');
             return result.changed;
         }).catch(function(err) {
             var msg = (err && err.message) ? err.message : '';
@@ -309,10 +315,12 @@ FA.Sync = {
                 self._slowDownIfNeeded();
                 self.setStatus('idle');
                 console.warn('[Sync] 拉取临时失败 (已静默):', msg);
+                if (notify && FA.showToast) FA.showToast('拉取失败，将自动重试', 'error');
             } else {
                 /* 配置类错误: 更新状态但不弹窗 (拉取不是用户主动操作) */
                 self.setStatus('error', msg);
                 console.error('[Sync] 拉取失败:', err);
+                if (notify && FA.showToast) FA.showToast('☁️ 同步出错: ' + msg, 'error');
             }
             return false;
         }).finally(function() {
@@ -326,14 +334,18 @@ FA.Sync = {
        流程: 拉最新 → reconcile(本地,远程) → PUT 合并结果
              409/422 → 重新拉取再合并重试 (最多 5 次), 必然收敛
        ============================================================ */
-    push: function() {
+    push: function(notify) {
         var self = this;
-        if (!this.isConfigured()) return Promise.resolve(false);
-        if (this._syncInProgress) { this._hasPendingPush = true; return Promise.resolve(false); }
+        if (!this.isConfigured()) {
+            if (notify && FA.showToast) FA.showToast('请先在「系统设置 → 数据管理 → 配置」中启用云同步', 'info');
+            return Promise.resolve(false);
+        }
+        if (this._syncInProgress) { this._hasPendingPush = true; if (notify && FA.showToast) FA.showToast('同步进行中，请稍候', 'info'); return Promise.resolve(false); }
         if (!this._acquireLock()) {
             /* 其他标签正在推送, 稍后重试 */
             this._hasPendingPush = true;
             this.schedulePush();
+            if (notify && FA.showToast) FA.showToast('其他标签页正在同步', 'info');
             return Promise.resolve(false);
         }
         this._syncInProgress = true;
@@ -345,21 +357,25 @@ FA.Sync = {
             this._syncInProgress = false;
             this._releaseLock();
             this.setStatus('idle');
+            if (notify && FA.showToast) FA.showToast('没有变动，无需同步', 'info');
             return Promise.resolve(false);
         }
         this.setStatus('syncing');
+        if (notify && FA.showToast) FA.showToast('正在推送到云端…', 'info');
         return this._pushLoop(0).then(function(success) {
             if (success) {
                 self._consecutiveFails = 0;
                 self._restorePullInterval();
                 self.setStatus('success');
                 self.lastSyncTime = new Date();
+                if (notify && FA.showToast) FA.showToast('已推送到云端 ✓', 'success');
             } else {
                 /* 重试次数耗尽: 标记待推送, 等下一轮 schedulePush 自动重试 */
                 self._consecutiveFails++;
                 self._slowDownIfNeeded();
                 self.setStatus('idle');
                 self._hasPendingPush = true;
+                if (notify && FA.showToast) FA.showToast('推送失败，将自动重试', 'error');
             }
             return success;
         }).catch(function(err) {
@@ -375,6 +391,7 @@ FA.Sync = {
                 self.setStatus('idle');
                 self._hasPendingPush = true;
                 console.warn('[Sync] 推送临时失败 (已静默, 将自动重试):', msg);
+                if (notify && FA.showToast) FA.showToast('推送失败，将自动重试', 'error');
             } else {
                 self.setStatus('error', msg);
                 console.error('[Sync] 推送失败 (需用户处理):', err);
@@ -498,10 +515,14 @@ FA.Sync = {
         Object.keys(local || {}).forEach(function(k) {
             out[k] = self.mergeKey(k, local[k], (remote || {})[k]);
         });
-        /* 已删除账号: 从 fi_accounts 剔除 (跨设备同步删除) */
+        /* 已删除账号: 从 fi_accounts 剔除 (跨设备同步删除)
+           大小写不敏感匹配: 防止 'TEST'(已删) 与 'test'(活跃) 因大小写不同被误判而复活 */
         var del = out[FA.DB_KEYS.deletedUsernames] || [];
         if (out[FA.DB_KEYS.accounts]) {
-            del.forEach(function(u) { if (u) delete out[FA.DB_KEYS.accounts][u]; });
+            var delLower = del.map(function(u){ return (u || '').toLowerCase(); });
+            Object.keys(out[FA.DB_KEYS.accounts]).forEach(function(u) {
+                if (delLower.indexOf((u || '').toLowerCase()) !== -1) delete out[FA.DB_KEYS.accounts][u];
+            });
         }
         return out;
     },

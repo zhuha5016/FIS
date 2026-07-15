@@ -24,10 +24,16 @@ FA.Data = {
         }
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length) {
             var deletedSet = FA.Data.getDeletedUsernames();
-            /* 仅补回「内置默认账号」中未删除的; 动态账号(test/TEST 等)不补回,
-               已删除的内置账号也不补回 → 防止云同步拉取后把删除的账号复活 */
+            /* 大小写不敏感匹配: 防止 'TEST'(已删) 与 'test'(活跃) 因大小写不同被误判为不同账号而复活 */
+            var deletedLower = deletedSet.map(function(u){ return (u || '').toLowerCase(); });
+            /* 先剔除已删除的账号 (含大小写不匹配的情况) */
+            Object.keys(parsed).forEach(function(key) {
+                if (deletedLower.indexOf((key || '').toLowerCase()) !== -1) delete parsed[key];
+            });
+            /* 仅补回「内置默认账号」中未删除的; 动态账号 / 已删除账号不补回
+               → 防止云同步拉取后把删除的账号复活 */
             (FA.BUILTIN_USERNAMES || []).forEach(function(key) {
-                if (!parsed[key] && deletedSet.indexOf(key) === -1) parsed[key] = FA.accounts[key];
+                if (!parsed[key] && deletedLower.indexOf(key.toLowerCase()) === -1) parsed[key] = FA.accounts[key];
             });
             FA.accounts = parsed;
             FA.Data.saveAccounts(); // 确保补回内置账号后落盘

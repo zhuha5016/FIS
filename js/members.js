@@ -118,14 +118,20 @@ FA.showContactPopup = function(index, btnEl) {
     var surname = (m.nameCn || m.name || '?').charAt(0);
     var title = surname + (m.gender === '女' ? '女士' : '先生');
 
-    var popup = document.createElement('div');
+    /* 复用页面中已存在的 #contactPopup 元素 (避免重复创建多个 .contact-popup 造成定位/样式异常) */
+    var popup = document.getElementById('contactPopup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'contactPopup';
+        document.body.appendChild(popup);
+    }
     popup.className = 'contact-popup';
     popup.innerHTML =
         '<div class="contact-popup-title">' + FA._esc(title) + '</div>' +
         '<div class="contact-popup-row"><span>📱</span> ' + FA._esc(m.phone || '未填写') + '</div>' +
         '<div class="contact-popup-row"><span>✉️</span> ' + FA._esc(m.email || '未填写') + '</div>';
+    popup.style.display = '';
 
-    document.body.appendChild(popup);
     FA._contactPopup = popup;
     FA._contactJustOpened = Date.now();
     _bindContactOutside(); /* 绑定单一外部点击监听 (幂等) */
@@ -167,9 +173,8 @@ function _bindContactOutside() {
 
 FA.closeContactPopup = function() {
     if (FA._contactPopup) {
-        if (FA._contactPopup.parentNode) {
-            FA._contactPopup.parentNode.removeChild(FA._contactPopup);
-        }
+        FA._contactPopup.innerHTML = '';
+        FA._contactPopup.style.display = 'none';
         FA._contactPopup = null;
     }
 };
